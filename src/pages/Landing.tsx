@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import HexSculptP5 from "@/components/HexSculptP5";
+import HexDotsCanvas from "@/components/HexDotsCanvas";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
         {/* p5 hex sculpture background (behind content) */}
-        <HexSculptP5 className="z-0" />
+        <HexDotsCanvas className="z-0" rings={12} dotSize={3.2} glowStrength={0.8} />
 
         {/* Foreground content */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
