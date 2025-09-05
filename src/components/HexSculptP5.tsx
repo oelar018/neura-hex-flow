@@ -133,13 +133,13 @@ const HexSculptP5 = forwardRef<HexSculptHandle, HexSculptProps>(function HexScul
       }
 
       p.setup = () => {
-        p.createCanvas(10, 10, p.P2D); // will be resized in rebuild()
+        const canvas = p.createCanvas(10, 10, p.P2D); // will be resized in rebuild()
         p.pixelDensity(1);
         rebuild();
 
         // pointer events
         containerRef.current!.addEventListener("pointermove", (e) => {
-          const rect = (p.canvas as HTMLCanvasElement).getBoundingClientRect();
+          const rect = (canvas.elt as HTMLCanvasElement).getBoundingClientRect();
           mouseLX = e.clientX - rect.left;
           mouseLY = e.clientY - rect.top;
           hasPointer = true;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HexSculptP5 } from '@/components/HexSculptP5';
+import HexSculptP5 from '@/components/HexSculptP5';
 import { VideoModal } from '@/components/VideoModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
 import { Button } from '@/components/ui/button';
