@@ -1,374 +1,266 @@
-import React, { useRef, useEffect, useState } from 'react';
-import p5 from 'p5';
+import React, {useEffect, useRef, useImperativeHandle, forwardRef} from "react";
+import p5 from "p5";
 
-interface HexSculptP5Props {
-  rings?: number;
-  dotSize?: number;
-  glowStrength?: number;
-  idleSpeed?: number;
-  focusCount?: number;
-  noiseAmt?: number;
-  perfMode?: 'auto' | 'hi' | 'med' | 'low';
+type PerfMode = "auto" | "hi" | "med" | "low";
+
+export type HexSculptProps = {
+  rings?: number;          // number of concentric hex rings (desktop default chosen automatically)
+  dotSize?: number;        // base dot radius in px
+  glowStrength?: number;   // 0..1
+  idleSpeed?: number;      // radians per second (very small)
+  focusCount?: number;     // how many nearest dots brighten under cursor
+  noiseAmt?: number;       // 0..1 for tiny shimmer
+  perfMode?: PerfMode;
+  className?: string;      // wrapper class
+};
+
+export type HexSculptHandle = { pause: () => void; resume: () => void; };
+
+type Dot = { x: number; y: number; baseR: number; baseA: number; };
+
+function prefersReducedMotion() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 }
 
-interface Dot {
-  x: number;
-  y: number;
-  q: number;
-  r: number;
-  ring: number;
-  baseSize: number;
-  baseAlpha: number;
-  glowAlpha: number;
-  breathePhase: number;
+function pickPerfMode(width: number): PerfMode {
+  if (width < 480) return "low";
+  if (width < 900) return "med";
+  return "hi";
 }
 
-export const HexSculptP5: React.FC<HexSculptP5Props> = ({
-  rings = 10,
-  dotSize = 3.0,
-  glowStrength = 0.8,
-  idleSpeed = 0.002,
-  focusCount = 60,
-  noiseAmt = 0.15,
-  perfMode = 'auto'
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const p5InstanceRef = useRef<p5>();
-  const [isVisible, setIsVisible] = useState(true);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+const HexSculptP5 = forwardRef<HexSculptHandle, HexSculptProps>(function HexSculptP5(
+  {
+    rings,
+    dotSize = 3.0,
+    glowStrength = 0.8,
+    idleSpeed = 0.2,   // deg/sec; converted to rad/frame
+    focusCount = 60,
+    noiseAmt = 0.15,
+    perfMode = "auto",
+    className = ""
+  },
+  ref
+) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const sketchRef = useRef<p5 | null>(null);
+  const pausedRef = useRef(false);
 
-  useEffect(() => {
-    // Check for reduced motion preference
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-    
-    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
-    mediaQuery.addEventListener('change', handleChange);
-    
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  useImperativeHandle(ref, () => ({
+    pause() { pausedRef.current = true; },
+    resume() { pausedRef.current = false; }
+  }), []);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    let dots: Dot[] = [];
-    let globalRotation = 0;
-    let mouseX = 0;
-    let mouseY = 0;
-    let canvasWidth = 0;
-    let canvasHeight = 0;
-    let sculptureScale = 1;
-    let actualRings = rings;
-    let actualDotSize = dotSize;
-    let tiltX = 0;
-    let tiltY = 0;
-    let ripples: Array<{ x: number; y: number; radius: number; alpha: number; maxRadius: number }> = [];
-    let lastMouseSpeed = 0;
-    
-    // Performance adjustments
-    const adjustForPerformance = (width: number, height: number) => {
-      const isMobile = width < 768;
-      
-      switch (perfMode) {
-        case 'low':
-          actualRings = Math.max(4, Math.floor(rings * 0.5));
-          actualDotSize = dotSize * 0.8;
-          break;
-        case 'med':
-          actualRings = Math.max(6, Math.floor(rings * 0.7));
-          actualDotSize = dotSize * 0.9;
-          break;
-        case 'hi':
-          actualRings = rings;
-          actualDotSize = dotSize;
-          break;
-        case 'auto':
-        default:
-          if (isMobile) {
-            actualRings = Math.max(6, Math.min(8, rings));
-            actualDotSize = dotSize * 0.8;
-          } else {
-            actualRings = Math.max(9, Math.min(12, rings));
-            actualDotSize = dotSize;
-          }
-          break;
+    const reduced = prefersReducedMotion();
+
+    const instance = new p5((p: p5) => {
+      let dots: Dot[] = [];
+      let W = 0, H = 0;
+      let S = 16;             // hex “size” (spacing scaler)
+      let R = 10;             // rings
+      let centerX = 0, centerY = 0;
+
+      // pointer state (in local canvas coords)
+      let mouseLX = 0, mouseLY = 0;
+      let hasPointer = false;
+
+      // perf scaling
+      const _perf = perfMode === "auto" ? pickPerfMode(window.innerWidth) : perfMode;
+
+      const scaleByPerf = (hi: number, med: number, low: number) => {
+        if (_perf === "hi") return hi;
+        if (_perf === "med") return med;
+        return low;
+      };
+
+      const bg = "#0A0A0A";
+
+      function computeRings() {
+        // if user supplied rings, honor it; else choose by perf + viewport
+        if (typeof rings === "number") return rings;
+        const w = Math.min(window.innerWidth, 1400);
+        if (_perf === "hi") return w > 1200 ? 12 : 10;
+        if (_perf === "med") return 9;
+        return 7;
       }
-    };
 
-    // Generate hexagonal rings
-    const generateHexRings = (centerX: number, centerY: number, scale: number) => {
-      dots = [];
-      
-      // Center dot
-      dots.push({
-        x: centerX,
-        y: centerY,
-        q: 0,
-        r: 0,
-        ring: 0,
-        baseSize: actualDotSize * 1.2,
-        baseAlpha: 0.9,
-        glowAlpha: 0,
-        breathePhase: Math.random() * Math.PI * 2
-      });
+      function rebuild() {
+        W = containerRef.current!.clientWidth;
+        H = containerRef.current!.clientHeight;
+        p.resizeCanvas(W, H, true);
+        centerX = W / 2;
+        centerY = H / 2;
 
-      // Generate concentric rings
-      for (let ring = 1; ring <= actualRings; ring++) {
-        // Generate the 6 sides of the hexagon
-        for (let side = 0; side < 6; side++) {
-          for (let i = 0; i < ring; i++) {
-            let q: number, r: number;
-            
-            // Calculate axial coordinates for each side
-            switch (side) {
-              case 0: q = ring - i; r = i; break;           // Top right
-              case 1: q = -i; r = ring; break;              // Right
-              case 2: q = -ring; r = ring - i; break;       // Bottom right
-              case 3: q = -ring + i; r = -i; break;         // Bottom left
-              case 4: q = i; r = -ring; break;              // Left
-              case 5: q = ring; r = -ring + i; break;       // Top left
-              default: q = 0; r = 0;
+        R = computeRings();
+        S = scaleByPerf(22, 18, 14) * Math.min(1, W / 1200);
+
+        dots = [];
+        // build concentric axial rings around (0,0)
+        // axial neighbors
+        const dirs = [
+          [1, 0], [1, -1], [0, -1],
+          [-1, 0], [-1, 1], [0, 1]
+        ];
+
+        // ring 0 (center)
+        dots.push({ x: 0, y: 0, baseR: dotSize + 0.8, baseA: 220 });
+
+        for (let k = 1; k <= R; k++) {
+          // start at cube coordinate on one hex corner
+          let q = k, r = 0;
+          for (let side = 0; side < 6; side++) {
+            const dq = dirs[side][0];
+            const dr = dirs[side][1];
+            for (let step = 0; step < k; step++) {
+              const X = S * (Math.sqrt(3) * q + (Math.sqrt(3) / 2) * r);
+              const Y = S * ((3 / 2) * r);
+              const radial = k / R;
+              const sizeJitter = (1 - radial) * 0.7;
+              const a = 180 - radial * 120; // alpha fades outward
+              dots.push({
+                x: X,
+                y: Y,
+                baseR: dotSize + sizeJitter,
+                baseA: a
+              });
+              q += dq; r += dr;
             }
-            
-            // Convert axial to pixel coordinates
-            const pixelX = scale * (Math.sqrt(3) * q + Math.sqrt(3)/2 * r);
-            const pixelY = scale * (3/2 * r);
-            
-            // Size and brightness based on ring distance from center
-            const ringNorm = ring / actualRings;
-            const size = actualDotSize * (1.2 - ringNorm * 0.4); // Inner rings larger
-            const alpha = 0.8 - ringNorm * 0.4; // Inner rings brighter
-            
-            dots.push({
-              x: centerX + pixelX,
-              y: centerY + pixelY,
-              q,
-              r,
-              ring,
-              baseSize: size,
-              baseAlpha: alpha,
-              glowAlpha: 0,
-              breathePhase: Math.random() * Math.PI * 2
-            });
           }
         }
       }
-    };
 
-    const sketch = (p: p5) => {
       p.setup = () => {
-        const container = containerRef.current!;
-        canvasWidth = container.offsetWidth;
-        canvasHeight = container.offsetHeight;
-        
-        const canvas = p.createCanvas(canvasWidth, canvasHeight);
-        canvas.parent(container);
-        
-        adjustForPerformance(canvasWidth, canvasHeight);
-        
-        // Calculate scale to fit sculpture nicely
-        const minDim = Math.min(canvasWidth, canvasHeight);
-        sculptureScale = (minDim * 0.3) / actualRings; // Adjust as needed
-        
-        generateHexRings(canvasWidth / 2, canvasHeight / 2, sculptureScale);
-        
-        // Set up canvas attributes
-        canvas.attribute('aria-hidden', 'true');
-        canvas.style('pointer-events', 'none');
+        p.createCanvas(10, 10, p.P2D); // will be resized in rebuild()
+        p.pixelDensity(1);
+        rebuild();
+
+        // pointer events
+        containerRef.current!.addEventListener("pointermove", (e) => {
+          const rect = (p.canvas as HTMLCanvasElement).getBoundingClientRect();
+          mouseLX = e.clientX - rect.left;
+          mouseLY = e.clientY - rect.top;
+          hasPointer = true;
+        });
+        containerRef.current!.addEventListener("pointerleave", () => {
+          hasPointer = false;
+        });
+
+        // pause when off-screen
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach((en) => {
+            if (en.isIntersecting) {
+              pausedRef.current = false;
+            } else {
+              pausedRef.current = true;
+            }
+          });
+        }, { threshold: 0.01 });
+        io.observe(containerRef.current!);
+
+        window.addEventListener("resize", () => {
+          rebuild();
+        });
       };
+
+      let t0 = performance.now();
 
       p.draw = () => {
-        if (!isVisible) return;
-        
+        if (pausedRef.current) return;
+
         p.clear();
-        
-        // Update global rotation (idle motion)
-        if (!prefersReducedMotion) {
-          globalRotation += idleSpeed;
-        }
-        
-        // Update tilt based on mouse position
-        const isMobile = canvasWidth < 768;
-        if (!isMobile && !prefersReducedMotion) {
-          const targetTiltX = (mouseY - canvasHeight / 2) / canvasHeight * 0.1; // ±6° ≈ 0.1 rad
-          const targetTiltY = (mouseX - canvasWidth / 2) / canvasWidth * 0.1;
-          tiltX += (targetTiltX - tiltX) * 0.05;
-          tiltY += (targetTiltY - tiltY) * 0.05;
-        }
-        
-        // Update mouse influence
-        dots.forEach(dot => {
-          const dx = dot.x - mouseX;
-          const dy = dot.y - mouseY;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          // Smooth falloff for glow
-          const maxGlowDistance = 120;
-          if (distance < maxGlowDistance) {
-            const influence = 1 - (distance / maxGlowDistance);
-            const smoothInfluence = influence * influence * (3 - 2 * influence); // smoothstep
-            dot.glowAlpha = smoothInfluence * glowStrength;
-          } else {
-            dot.glowAlpha *= 0.95; // Fade out
-          }
-        });
-        
-        // Update ripples
-        if (!prefersReducedMotion) {
-          ripples = ripples.filter(ripple => {
-            ripple.radius += 3;
-            ripple.alpha *= 0.98;
-            return ripple.alpha > 0.01 && ripple.radius < ripple.maxRadius;
-          });
-        }
-        
-        // Setup transforms
+        p.background(bg);
+
+        // center and tiny global rotation (very subtle)
         p.push();
-        p.translate(canvasWidth / 2, canvasHeight / 2);
-        p.rotate(globalRotation);
-        
-        // Apply subtle tilt
-        if (!prefersReducedMotion) {
-          p.rotateX(tiltX);
-          p.rotateY(tiltY);
-        }
-        
-        p.translate(-canvasWidth / 2, -canvasHeight / 2);
-        
-        // Draw ripples
-        if (!prefersReducedMotion) {
-          ripples.forEach(ripple => {
-            p.push();
-            p.stroke(0, 255, 255, ripple.alpha * 50);
-            p.strokeWeight(1);
-            p.noFill();
-            p.ellipse(ripple.x, ripple.y, ripple.radius * 2);
-            p.pop();
-          });
-        }
-        
-        // Draw dots with additive blending
-        p.blendMode(p.ADD);
-        
-        dots.forEach(dot => {
-          // Calculate shimmer
-          let shimmer = 1;
-          if (!prefersReducedMotion) {
-            shimmer = 1 + Math.sin(p.frameCount * 0.02 + dot.breathePhase) * noiseAmt;
+        p.translate(centerX, centerY);
+
+        const now = performance.now();
+        const dt = (now - t0) / 1000; t0 = now;
+        const idleRadPerSec = (idleSpeed * Math.PI) / 180; // convert deg/sec → rad/sec
+        const idleRot = reduced ? 0 : idleRadPerSec * (now / 1000);
+
+        // pointer → small tilt/parallax
+        const px = hasPointer ? (mouseLX - centerX) / Math.max(180, W * 0.6) : 0;
+        const py = hasPointer ? (mouseLY - centerY) / Math.max(180, H * 0.6) : 0;
+        const tilt = reduced ? 0 : 0.10; // radians max (~6°)
+        p.rotate(idleRot + px * tilt * 0.6); // yaw-ish; simple 2D
+
+        p.noStroke();
+        if ((p as any).blendMode) p.blendMode(p.ADD);
+
+        // compute “focus” glow: sort a copy by distance to pointer (in sculpt space)
+        const mx = (mouseLX - centerX);
+        const my = (mouseLY - centerY);
+        let nearest: number[] = [];
+        if (hasPointer) {
+          // sample by picking a subset for perf
+          const step = dots.length > 2000 ? 2 : 1;
+          for (let i = 0; i < dots.length; i += step) {
+            const d = dots[i];
+            const dx = d.x - mx;
+            const dy = d.y - my;
+            nearest.push(i << 20 | (dx*dx + dy*dy)); // pack dist in lower bits
           }
-          
-          // Base dot
-          const totalAlpha = (dot.baseAlpha + dot.glowAlpha) * 255 * shimmer;
-          p.fill(0, 255, 255, totalAlpha * 0.6); // Cyan/teal
-          p.noStroke();
-          
-          const breatheSize = dot.glowAlpha > 0 ? dot.baseSize + 1 : dot.baseSize;
-          p.ellipse(dot.x, dot.y, breatheSize * shimmer);
-          
-          // Glow effect
-          if (dot.glowAlpha > 0) {
-            p.fill(0, 255, 255, dot.glowAlpha * 80);
-            p.ellipse(dot.x, dot.y, breatheSize * 2.5 * shimmer);
-            
-            p.fill(0, 255, 255, dot.glowAlpha * 40);
-            p.ellipse(dot.x, dot.y, breatheSize * 4 * shimmer);
+          // partial sort: just get top N by ascending dist
+          nearest.sort((a, b) => (a & 0xFFFFF) - (b & 0xFFFFF));
+        }
+
+        const N = Math.min(focusCount, nearest.length);
+        const focusIndex = new Set<number>();
+        for (let i = 0; i < N; i++) {
+          focusIndex.add(nearest[i] >> 20);
+        }
+
+        // draw lines are **not** requested; dots only
+        // draw dots
+        for (let i = 0; i < dots.length; i++) {
+          const d = dots[i];
+
+          // tiny shimmer via noise
+          const n = noiseAmt > 0
+            ? noiseAmt * 2 * (p.noise(d.x * 0.002 + now * 0.0002, d.y * 0.002) - 0.5)
+            : 0;
+
+          let r = d.baseR + n;
+          let a = d.baseA;
+
+          if (hasPointer && focusIndex.has(i)) {
+            // compute exact distance for smooth falloff glow
+            const dx = d.x - mx, dy = d.y - my;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const glowRadius = S * 6.0; // how far the glow influences
+            const t = Math.max(0, 1 - dist / glowRadius);
+            const ease = t * t * (3 - 2 * t); // smoothstep
+            a = Math.min(255, d.baseA + ease * glowStrength * 160);
+            r = d.baseR + ease * 1.1; // tiny “breathe”
           }
-        });
-        
+
+          p.fill(130, 255, 250, a); // cyan/teal-ish
+          p.circle(d.x, d.y, r * 2);
+        }
+
         p.pop();
-        p.blendMode(p.BLEND);
       };
+    }, containerRef.current);
 
-      p.windowResized = () => {
-        const container = containerRef.current!;
-        canvasWidth = container.offsetWidth;
-        canvasHeight = container.offsetHeight;
-        
-        p.resizeCanvas(canvasWidth, canvasHeight);
-        adjustForPerformance(canvasWidth, canvasHeight);
-        
-        const minDim = Math.min(canvasWidth, canvasHeight);
-        sculptureScale = (minDim * 0.3) / actualRings;
-        
-        generateHexRings(canvasWidth / 2, canvasHeight / 2, sculptureScale);
-      };
-    };
-
-    // Mouse tracking on parent element
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = containerRef.current!.getBoundingClientRect();
-      const newMouseX = e.clientX - rect.left;
-      const newMouseY = e.clientY - rect.top;
-      
-      // Calculate mouse speed for ripple effect
-      const dx = newMouseX - mouseX;
-      const dy = newMouseY - mouseY;
-      const speed = Math.sqrt(dx * dx + dy * dy);
-      lastMouseSpeed = speed;
-      
-      mouseX = newMouseX;
-      mouseY = newMouseY;
-      
-      // Add ripple on fast movement
-      if (!prefersReducedMotion && speed > 15 && ripples.length < 3) {
-        ripples.push({
-          x: mouseX,
-          y: mouseY,
-          radius: 0,
-          alpha: 1,
-          maxRadius: 200
-        });
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        const touch = e.touches[0];
-        const rect = containerRef.current!.getBoundingClientRect();
-        mouseX = touch.clientX - rect.left;
-        mouseY = touch.clientY - rect.top;
-      }
-    };
-
-    // Intersection Observer for performance
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsVisible(entry.isIntersecting);
-        if (p5InstanceRef.current) {
-          if (entry.isIntersecting) {
-            p5InstanceRef.current.loop();
-          } else {
-            p5InstanceRef.current.noLoop();
-          }
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(containerRef.current);
-    
-    // Add event listeners
-    containerRef.current.addEventListener('mousemove', handleMouseMove);
-    containerRef.current.addEventListener('touchmove', handleTouchMove, { passive: true });
-    
-    // Initialize p5
-    p5InstanceRef.current = new p5(sketch);
+    sketchRef.current = instance;
 
     return () => {
-      observer.disconnect();
-      containerRef.current?.removeEventListener('mousemove', handleMouseMove);
-      containerRef.current?.removeEventListener('touchmove', handleTouchMove);
-      if (p5InstanceRef.current) {
-        p5InstanceRef.current.remove();
-      }
+      try { sketchRef.current?.remove(); } catch {}
+      sketchRef.current = null;
     };
-  }, [rings, dotSize, glowStrength, idleSpeed, focusCount, noiseAmt, perfMode, isVisible, prefersReducedMotion]);
+  }, [rings, dotSize, glowStrength, idleSpeed, focusCount, noiseAmt, perfMode]);
 
   return (
-    <div 
-      ref={containerRef} 
-      className="absolute inset-0 w-full h-full"
-      style={{ background: '#0A0A0A' }}
+    <div
+      ref={containerRef}
+      className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}
+      aria-hidden="true"
     />
   );
-};
+});
+
+export default HexSculptP5;
