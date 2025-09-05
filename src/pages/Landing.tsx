@@ -21,7 +21,7 @@ export const Landing: React.FC = () => {
           gridDensity={25}
           rippleStrength={1.2}
           noise={0.3}
-          perfMode="high"
+          perfMode="hi"
         />
         
         {/* Gradient Overlay */}

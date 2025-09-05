@@ -2,15 +2,22 @@ import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } f
 import * as THREE from 'three';
 
 interface HexHeroProps {
+  /** Grid density - number of hex nodes in each direction. Auto-reduced on small screens. @default 20 */
   gridDensity?: number;
+  /** Strength of ripple effect on pointer interaction. Auto-reduced on small screens. @default 1.0 */
   rippleStrength?: number;
+  /** Array of hex color strings for gradient effect. @default ['#00ffff', '#0080ff', '#004080'] */
   colorStops?: string[];
+  /** Amount of shimmer noise animation. @default 0.3 */
   noise?: number;
-  perfMode?: 'high' | 'medium' | 'low';
+  /** Performance mode: 'hi' = high quality, 'med' = balanced, 'low' = performance. @default 'hi' */
+  perfMode?: 'hi' | 'med' | 'low';
 }
 
 export interface HexHeroApi {
+  /** Pause the animation loop */
   pause: () => void;
+  /** Resume the animation loop */
   resume: () => void;
 }
 
@@ -19,7 +26,7 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
   rippleStrength = 1.0,
   colorStops = ['#00ffff', '#0080ff', '#004080'],
   noise = 0.3,
-  perfMode = 'high'
+  perfMode = 'hi'
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene>();
@@ -29,23 +36,89 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
   const lineMeshRef = useRef<THREE.LineSegments>();
   const animationRef = useRef<number>();
   const mouseRef = useRef(new THREE.Vector2());
+  const targetMouseRef = useRef(new THREE.Vector2());
   const timeRef = useRef(0);
+  const rippleTimeRef = useRef(0);
+  const lastFrameTime = useRef(0);
   const [isVisible, setIsVisible] = useState(true);
   const [supportsWebGL, setSupportsWebGL] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [deviceMotion, setDeviceMotion] = useState(new THREE.Vector2());
+  const [screenSize, setScreenSize] = useState({ width: 0, height: 0 });
+
+  // Auto-adjust settings based on screen size and performance mode
+  const getOptimizedSettings = () => {
+    const isSmallScreen = screenSize.width < 768;
+    const isMediumScreen = screenSize.width < 1024;
+    
+    let adjustedGridDensity = gridDensity;
+    let adjustedRippleStrength = rippleStrength;
+    let targetFPS = 60;
+    let pixelRatio = 1;
+    let antialias = true;
+    
+    // Auto-reduce settings on small screens
+    if (isSmallScreen) {
+      adjustedGridDensity = Math.min(adjustedGridDensity * 0.6, 15);
+      adjustedRippleStrength = adjustedRippleStrength * 0.7;
+    } else if (isMediumScreen) {
+      adjustedGridDensity = Math.min(adjustedGridDensity * 0.8, 18);
+      adjustedRippleStrength = adjustedRippleStrength * 0.85;
+    }
+    
+    // Performance mode adjustments
+    switch (perfMode) {
+      case 'hi':
+        pixelRatio = Math.min(window.devicePixelRatio, 2);
+        targetFPS = 60;
+        antialias = true;
+        break;
+      case 'med':
+        pixelRatio = Math.min(window.devicePixelRatio, 1.5);
+        targetFPS = 45;
+        antialias = !isSmallScreen;
+        adjustedGridDensity *= 0.8;
+        break;
+      case 'low':
+        pixelRatio = 1;
+        targetFPS = 30;
+        antialias = false;
+        adjustedGridDensity *= 0.6;
+        adjustedRippleStrength *= 0.7;
+        break;
+    }
+    
+    return {
+      gridDensity: Math.floor(adjustedGridDensity),
+      rippleStrength: adjustedRippleStrength,
+      targetFPS,
+      pixelRatio,
+      antialias
+    };
+  };
+
+  // Track screen size
+  useEffect(() => {
+    const updateScreenSize = () => {
+      setScreenSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    
+    updateScreenSize();
+    window.addEventListener('resize', updateScreenSize);
+    return () => window.removeEventListener('resize', updateScreenSize);
+  }, []);
 
   // Hex grid generation
-  const generateHexGrid = () => {
+  const generateHexGrid = (density: number) => {
     const positions = [];
     const connections = [];
     const hexSize = 0.8;
     const spacing = 1.5;
     
     // Generate hexagonal grid positions
-    for (let q = -gridDensity; q <= gridDensity; q++) {
-      for (let r = -gridDensity; r <= gridDensity; r++) {
-        if (Math.abs(q + r) <= gridDensity) {
+    for (let q = -density; q <= density; q++) {
+      for (let r = -density; r <= density; r++) {
+        if (Math.abs(q + r) <= density) {
           const x = hexSize * (3/2 * q);
           const y = hexSize * (Math.sqrt(3)/2 * (q + 2 * r));
           positions.push(new THREE.Vector3(x, y, 0));
@@ -68,84 +141,127 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
     return { positions, connections };
   };
 
-  // Vertex shader for hex nodes
+  // Enhanced vertex shader for hex nodes with smooth interpolation
   const hexVertexShader = `
     uniform float time;
     uniform vec2 mouse;
+    uniform vec2 targetMouse;
     uniform float rippleStrength;
     uniform float noise;
+    uniform float rippleRadius;
     attribute float instanceIndex;
     varying float vDistance;
     varying float vIntensity;
     varying vec3 vPosition;
+    varying float vGlowFactor;
     
-    // Noise function
+    // Enhanced noise function
     float random(vec2 st) {
       return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+    
+    float smoothNoise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(random(i), random(i + vec2(1.0, 0.0)), f.x),
+                 mix(random(i + vec2(0.0, 1.0)), random(i + vec2(1.0, 1.0)), f.x), f.y);
     }
     
     void main() {
       vec3 pos = position + instanceMatrix[3].xyz;
       vPosition = pos;
       
-      // Distance from mouse
-      vDistance = distance(pos.xy, mouse * 10.0 - vec2(5.0, 5.0));
+      // Smooth mouse interpolation for trails
+      vec2 smoothMouse = mix(mouse, targetMouse, 0.8);
       
-      // Mouse influence with ripple
-      float mouseInfluence = 1.0 - smoothstep(0.0, 3.0, vDistance);
-      float ripple = sin(vDistance * 2.0 - time * 6.0) * 0.5 + 0.5;
-      ripple *= mouseInfluence * rippleStrength;
+      // Distance from smooth mouse position
+      vDistance = distance(pos.xy, smoothMouse * 10.0 - vec2(5.0, 5.0));
       
-      // Noise-based shimmer
-      float shimmer = random(pos.xy + time * 0.1) * noise;
+      // Enhanced mouse influence with smooth falloff
+      float mouseInfluence = 1.0 - smoothstep(0.0, 4.0, vDistance);
+      mouseInfluence = pow(mouseInfluence, 2.0); // Smoother falloff
       
-      // Oscillation for nearby nodes
-      float oscillation = sin(time * 2.0 + instanceIndex * 0.1) * mouseInfluence * 0.1;
+      // Expanding/decaying ripple effect
+      float rippleDistance = abs(vDistance - rippleRadius);
+      float ripple = exp(-rippleDistance * 1.5) * sin(rippleDistance * 3.0 - time * 8.0);
+      ripple *= rippleStrength * 0.5;
+      
+      // Enhanced shimmer with multiple octaves
+      float shimmer = smoothNoise(pos.xy * 2.0 + time * 0.1) * 0.3;
+      shimmer += smoothNoise(pos.xy * 4.0 + time * 0.15) * 0.2;
+      shimmer *= noise;
+      
+      // Oscillation for nearby nodes with phase variation
+      float oscillation = sin(time * 2.0 + instanceIndex * 0.1 + pos.x * 0.5) * mouseInfluence * 0.15;
       pos.z += oscillation;
       
-      // Calculate final intensity
-      vIntensity = 0.2 + ripple + shimmer + mouseInfluence * 0.5;
+      // Calculate intensity with bloom factor
+      vIntensity = 0.15 + ripple + shimmer + mouseInfluence * 0.6;
+      
+      // Glow factor for fragment shader bloom
+      vGlowFactor = mouseInfluence * exp(-vDistance * 0.3);
       
       gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
     }
   `;
 
-  // Fragment shader for hex nodes
+  // Enhanced fragment shader with additive bloom and smoothstep falloff
   const hexFragmentShader = `
     uniform vec3 colorStops[3];
+    uniform float time;
     varying float vDistance;
     varying float vIntensity;
     varying vec3 vPosition;
+    varying float vGlowFactor;
     
     void main() {
-      // Soft circular gradient for node
+      // Soft circular gradient for node with enhanced falloff
       vec2 center = gl_PointCoord - vec2(0.5);
       float dist = length(center);
-      float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
+      float alpha = 1.0 - smoothstep(0.2, 0.6, dist);
       
-      // Color mixing based on intensity and distance
-      vec3 color = mix(colorStops[2], mix(colorStops[1], colorStops[0], vIntensity), vIntensity);
+      // Enhanced color mixing with bloom
+      vec3 baseColor = mix(colorStops[2], mix(colorStops[1], colorStops[0], vIntensity), vIntensity);
       
-      // Glow effect
-      float glow = exp(-vDistance * 0.5) * vIntensity;
-      color += vec3(glow * 0.3, glow * 0.6, glow);
+      // Additive bloom effect with smoothstep falloff
+      float bloomRadius = 2.0 + vGlowFactor * 3.0;
+      float bloom = exp(-vDistance * 0.2) * vGlowFactor;
+      bloom = smoothstep(0.0, bloomRadius, bloom);
       
-      gl_FragColor = vec4(color, alpha * vIntensity);
+      // Time-based shimmer enhancement
+      float shimmer = sin(time * 3.0 + vPosition.x + vPosition.y) * 0.1 + 0.9;
+      
+      // Combine effects with enhanced glow
+      vec3 glowColor = colorStops[0] * bloom * 1.5;
+      vec3 finalColor = baseColor + glowColor;
+      finalColor *= shimmer;
+      
+      // Enhanced alpha with glow contribution
+      float finalAlpha = alpha * (vIntensity + bloom * 0.5);
+      
+      gl_FragColor = vec4(finalColor, finalAlpha);
     }
   `;
 
-  // Line shader for connections
+  // Enhanced line shader with smooth opacity transitions
   const lineVertexShader = `
     uniform float time;
     uniform vec2 mouse;
+    uniform float rippleRadius;
     varying float vOpacity;
+    varying float vGlow;
     
     void main() {
       vec3 pos = position;
       
-      // Distance from mouse for line opacity
+      // Distance from mouse for line opacity with smooth transitions
       float mouseDistance = distance(pos.xy, mouse * 10.0 - vec2(5.0, 5.0));
-      vOpacity = 0.1 + (1.0 - smoothstep(0.0, 4.0, mouseDistance)) * 0.3;
+      vOpacity = 0.05 + (1.0 - smoothstep(0.0, 5.0, mouseDistance)) * 0.4;
+      
+      // Ripple effect on lines
+      float rippleEffect = exp(-abs(mouseDistance - rippleRadius) * 0.8) * 0.3;
+      vGlow = rippleEffect;
       
       gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
     }
@@ -154,9 +270,11 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
   const lineFragmentShader = `
     uniform vec3 colorStops[3];
     varying float vOpacity;
+    varying float vGlow;
     
     void main() {
-      gl_FragColor = vec4(colorStops[1], vOpacity);
+      vec3 color = mix(colorStops[2], colorStops[1], vOpacity + vGlow);
+      gl_FragColor = vec4(color, vOpacity + vGlow * 0.5);
     }
   `;
 
@@ -176,22 +294,25 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
       return;
     }
 
+    // Get optimized settings
+    const settings = getOptimizedSettings();
+
     // Scene setup
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, canvas.offsetWidth / canvas.offsetHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ 
       canvas, 
       alpha: true, 
-      antialias: perfMode === 'high',
-      powerPreference: perfMode === 'high' ? 'high-performance' : 'low-power'
+      antialias: settings.antialias,
+      powerPreference: perfMode === 'hi' ? 'high-performance' : 'low-power'
     });
     
     renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, perfMode === 'high' ? 2 : 1));
+    renderer.setPixelRatio(settings.pixelRatio);
     renderer.setClearColor(0x000000, 0);
 
-    // Generate hex grid
-    const { positions, connections } = generateHexGrid();
+    // Generate hex grid with optimized density
+    const { positions, connections } = generateHexGrid(settings.gridDensity);
 
     // Create hex node geometry and material
     const hexGeometry = new THREE.CircleGeometry(0.05, 6);
@@ -199,8 +320,10 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
       uniforms: {
         time: { value: 0 },
         mouse: { value: new THREE.Vector2() },
-        rippleStrength: { value: rippleStrength },
+        targetMouse: { value: new THREE.Vector2() },
+        rippleStrength: { value: settings.rippleStrength },
         noise: { value: noise },
+        rippleRadius: { value: 0 },
         colorStops: { 
           value: colorStops.map(color => new THREE.Color(color))
         }
@@ -217,12 +340,12 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
       const matrix = new THREE.Matrix4();
       matrix.setPosition(pos);
       hexMesh.setMatrixAt(i, matrix);
-      
-      // Set instance index for shader
-      hexMesh.geometry.setAttribute('instanceIndex', 
-        new THREE.InstancedBufferAttribute(new Float32Array(positions.map((_, idx) => idx)), 1)
-      );
     });
+    
+    // Set instance index for shader
+    hexMesh.geometry.setAttribute('instanceIndex', 
+      new THREE.InstancedBufferAttribute(new Float32Array(positions.map((_, idx) => idx)), 1)
+    );
     hexMesh.instanceMatrix.needsUpdate = true;
     scene.add(hexMesh);
 
@@ -240,14 +363,14 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
       uniforms: {
         time: { value: 0 },
         mouse: { value: new THREE.Vector2() },
+        rippleRadius: { value: 0 },
         colorStops: { 
           value: colorStops.map(color => new THREE.Color(color))
         }
       },
       vertexShader: lineVertexShader,
       fragmentShader: lineFragmentShader,
-      transparent: true,
-      opacity: 0.3
+      transparent: true
     });
 
     const lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
@@ -263,14 +386,21 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
     hexMeshRef.current = hexMesh;
     lineMeshRef.current = lineMesh;
 
+    // Store target FPS
+    lastFrameTime.current = performance.now();
+
     return () => {
-      renderer.dispose();
-      hexGeometry.dispose();
-      hexMaterial.dispose();
-      lineGeometry.dispose();
-      lineMaterial.dispose();
+      try {
+        renderer.dispose();
+        hexGeometry.dispose();
+        hexMaterial.dispose();
+        lineGeometry.dispose();
+        lineMaterial.dispose();
+      } catch (error) {
+        // Silently handle disposal errors
+      }
     };
-  }, [gridDensity, rippleStrength, noise, perfMode, colorStops]);
+  }, [gridDensity, rippleStrength, noise, perfMode, colorStops, screenSize]);
 
   // Handle resize
   useEffect(() => {
@@ -291,7 +421,7 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle mouse/touch movement
+  // Enhanced mouse/touch movement with smooth interpolation
   useEffect(() => {
     const canvas = canvasRef.current;
     
@@ -313,15 +443,8 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
       const x = ((clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((clientY - rect.top) / rect.height) * 2 + 1;
       
-      mouseRef.current.set(x, y);
-      
-      // Update shader uniforms
-      if (hexMeshRef.current) {
-        (hexMeshRef.current.material as THREE.ShaderMaterial).uniforms.mouse.value.copy(mouseRef.current);
-      }
-      if (lineMeshRef.current) {
-        (lineMeshRef.current.material as THREE.ShaderMaterial).uniforms.mouse.value.copy(mouseRef.current);
-      }
+      // Set target mouse for smooth interpolation
+      targetMouseRef.current.set(x, y);
     };
 
     const handleMouseMove = (e: MouseEvent) => handlePointerMove(e);
@@ -373,40 +496,62 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
     }
   }, [deviceMotion]);
 
-  // Animation loop
+  // Enhanced animation loop with FPS limiting and smooth interpolation
   useEffect(() => {
     if (!isVisible || !supportsWebGL || isPaused) return;
 
-    const animate = () => {
-      timeRef.current += 0.016; // ~60fps
+    const settings = getOptimizedSettings();
+    const frameInterval = 1000 / settings.targetFPS;
+
+    const animate = (currentTime: number) => {
+      const deltaTime = currentTime - lastFrameTime.current;
       
-      // Update shader uniforms
-      if (hexMeshRef.current) {
-        const material = hexMeshRef.current.material as THREE.ShaderMaterial;
-        material.uniforms.time.value = timeRef.current;
-      }
-      
-      if (lineMeshRef.current) {
-        const material = lineMeshRef.current.material as THREE.ShaderMaterial;
-        material.uniforms.time.value = timeRef.current;
-      }
-      
-      // Render scene
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      // FPS limiting
+      if (deltaTime >= frameInterval) {
+        timeRef.current += deltaTime * 0.001;
+        
+        // Smooth mouse interpolation
+        mouseRef.current.lerp(targetMouseRef.current, 0.1);
+        
+        // Update ripple radius with expanding/decaying pattern
+        rippleTimeRef.current += deltaTime * 0.003;
+        const rippleRadius = Math.sin(rippleTimeRef.current * 2) * 3 + 3;
+        
+        // Update shader uniforms
+        if (hexMeshRef.current) {
+          const material = hexMeshRef.current.material as THREE.ShaderMaterial;
+          material.uniforms.time.value = timeRef.current;
+          material.uniforms.mouse.value.copy(mouseRef.current);
+          material.uniforms.targetMouse.value.copy(targetMouseRef.current);
+          material.uniforms.rippleRadius.value = rippleRadius;
+        }
+        
+        if (lineMeshRef.current) {
+          const material = lineMeshRef.current.material as THREE.ShaderMaterial;
+          material.uniforms.time.value = timeRef.current;
+          material.uniforms.mouse.value.copy(mouseRef.current);
+          material.uniforms.rippleRadius.value = rippleRadius;
+        }
+        
+        // Render scene
+        if (rendererRef.current && sceneRef.current && cameraRef.current) {
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+        }
+        
+        lastFrameTime.current = currentTime;
       }
       
       animationRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationRef.current = requestAnimationFrame(animate);
 
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isVisible, supportsWebGL, isPaused]);
+  }, [isVisible, supportsWebGL, isPaused, screenSize, gridDensity, rippleStrength, perfMode]);
 
   // Intersection Observer for performance
   useEffect(() => {
@@ -435,10 +580,15 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
   }, []);
 
   if (!supportsWebGL) {
-    // Fallback static SVG
+    // Fallback static SVG with enhanced accessibility
     return (
-      <div className="absolute inset-0 bg-gradient-hero opacity-40">
-        <svg className="w-full h-full" viewBox="0 0 800 600">
+      <div className="absolute inset-0 bg-gradient-hero opacity-40" aria-hidden="true">
+        <svg 
+          className="w-full h-full" 
+          viewBox="0 0 800 600"
+          role="img" 
+          aria-label="Hexagonal pattern background"
+        >
           <defs>
             <pattern id="hexPattern" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
               <polygon
@@ -474,6 +624,9 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
         style={{ mixBlendMode: 'screen' }}
+        aria-hidden="true"
+        tabIndex={-1}
+        role="presentation"
       />
     </div>
   );
