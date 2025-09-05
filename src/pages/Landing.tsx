@@ -20,8 +20,8 @@ export const Landing: React.FC = () => {
         <HexHero 
           gridDensity={25}
           rippleStrength={1.2}
-          noiseAmount={0.3}
-          performanceMode="high"
+          noise={0.3}
+          perfMode="high"
         />
         
         {/* Gradient Overlay */}

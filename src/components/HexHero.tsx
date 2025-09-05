@@ -1,112 +1,169 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 
 interface HexHeroProps {
   gridDensity?: number;
-  colorStops?: string[];
   rippleStrength?: number;
-  noiseAmount?: number;
-  performanceMode?: 'high' | 'medium' | 'low';
+  colorStops?: string[];
+  noise?: number;
+  perfMode?: 'high' | 'medium' | 'low';
 }
 
-export const HexHero: React.FC<HexHeroProps> = ({
-  gridDensity = 30,
-  colorStops = ['#00ffff', '#0080ff', '#004080'],
+export interface HexHeroApi {
+  pause: () => void;
+  resume: () => void;
+}
+
+export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
+  gridDensity = 20,
   rippleStrength = 1.0,
-  noiseAmount = 0.5,
-  performanceMode = 'high'
-}) => {
+  colorStops = ['#00ffff', '#0080ff', '#004080'],
+  noise = 0.3,
+  perfMode = 'high'
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene>();
   const rendererRef = useRef<THREE.WebGLRenderer>();
-  const cameraRef = useRef<THREE.OrthographicCamera>();
-  const materialRef = useRef<THREE.ShaderMaterial>();
+  const cameraRef = useRef<THREE.PerspectiveCamera>();
+  const hexMeshRef = useRef<THREE.InstancedMesh>();
+  const lineMeshRef = useRef<THREE.LineSegments>();
   const animationRef = useRef<number>();
-  const mouseRef = useRef({ x: 0, y: 0 });
+  const mouseRef = useRef(new THREE.Vector2());
   const timeRef = useRef(0);
   const [isVisible, setIsVisible] = useState(true);
   const [supportsWebGL, setSupportsWebGL] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [deviceMotion, setDeviceMotion] = useState(new THREE.Vector2());
 
-  // Vertex shader for hexagonal grid
-  const vertexShader = `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // Hex grid generation
+  const generateHexGrid = () => {
+    const positions = [];
+    const connections = [];
+    const hexSize = 0.8;
+    const spacing = 1.5;
+    
+    // Generate hexagonal grid positions
+    for (let q = -gridDensity; q <= gridDensity; q++) {
+      for (let r = -gridDensity; r <= gridDensity; r++) {
+        if (Math.abs(q + r) <= gridDensity) {
+          const x = hexSize * (3/2 * q);
+          const y = hexSize * (Math.sqrt(3)/2 * (q + 2 * r));
+          positions.push(new THREE.Vector3(x, y, 0));
+        }
+      }
     }
-  `;
 
-  // Fragment shader with hexagonal pattern and interactive effects
-  const fragmentShader = `
+    // Generate connections between adjacent hexagons
+    positions.forEach((pos, i) => {
+      positions.forEach((otherPos, j) => {
+        if (i !== j) {
+          const distance = pos.distanceTo(otherPos);
+          if (distance < spacing * 1.2) {
+            connections.push(pos, otherPos);
+          }
+        }
+      });
+    });
+
+    return { positions, connections };
+  };
+
+  // Vertex shader for hex nodes
+  const hexVertexShader = `
     uniform float time;
     uniform vec2 mouse;
-    uniform vec2 resolution;
     uniform float rippleStrength;
-    uniform float noiseAmount;
-    varying vec2 vUv;
+    uniform float noise;
+    attribute float instanceIndex;
+    varying float vDistance;
+    varying float vIntensity;
+    varying vec3 vPosition;
     
-    // Hexagon distance function
-    float hexDist(vec2 p) {
-      p = abs(p);
-      return max(dot(p, normalize(vec2(1.0, 1.732))), p.x);
-    }
-    
-    // Hexagonal grid function
-    vec2 hexGrid(vec2 p) {
-      vec2 q = vec2(p.x * 2.0 * 0.5773, p.y + p.x * 0.5773);
-      vec2 pi = floor(q);
-      vec2 pf = fract(q);
-      
-      float v = mod(pi.x + pi.y, 3.0);
-      
-      float ca = step(1.0, v);
-      float cb = step(2.0, v);
-      vec2 ma = step(pf.xy, pf.yx);
-      
-      return vec2(pi + ca - cb*ma + (cb-ca)*ma.yx);
-    }
-    
-    // Smooth noise function
-    float noise(vec2 p) {
-      return sin(p.x * 12.345) * sin(p.y * 23.456) * 0.5 + 0.5;
+    // Noise function
+    float random(vec2 st) {
+      return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
     }
     
     void main() {
-      vec2 p = (vUv - 0.5) * 8.0;
-      vec2 hid = hexGrid(p);
+      vec3 pos = position + instanceMatrix[3].xyz;
+      vPosition = pos;
       
-      // Distance to hex center
-      float hexDistance = hexDist(p - hid * 0.866);
+      // Distance from mouse
+      vDistance = distance(pos.xy, mouse * 10.0 - vec2(5.0, 5.0));
       
-      // Mouse influence
-      vec2 mousePos = (mouse - 0.5) * 8.0;
-      float mouseInfluence = 1.0 - smoothstep(0.0, 3.0, distance(hid, hexGrid(mousePos)));
+      // Mouse influence with ripple
+      float mouseInfluence = 1.0 - smoothstep(0.0, 3.0, vDistance);
+      float ripple = sin(vDistance * 2.0 - time * 6.0) * 0.5 + 0.5;
+      ripple *= mouseInfluence * rippleStrength;
       
-      // Ripple effect
-      float ripple = sin(distance(hid, hexGrid(mousePos)) * 2.0 - time * 4.0) * 0.5 + 0.5;
-      ripple = ripple * mouseInfluence * rippleStrength;
+      // Noise-based shimmer
+      float shimmer = random(pos.xy + time * 0.1) * noise;
       
-      // Hex outline
-      float hex = 1.0 - smoothstep(0.7, 0.8, hexDistance);
+      // Oscillation for nearby nodes
+      float oscillation = sin(time * 2.0 + instanceIndex * 0.1) * mouseInfluence * 0.1;
+      pos.z += oscillation;
       
-      // Add noise and animation
-      float n = noise(hid + time * 0.1) * noiseAmount;
-      float pulse = sin(time + hid.x * 0.5 + hid.y * 0.7) * 0.1 + 0.9;
+      // Calculate final intensity
+      vIntensity = 0.2 + ripple + shimmer + mouseInfluence * 0.5;
       
-      // Combine effects
-      float intensity = hex * (0.2 + ripple + n) * pulse;
-      intensity = intensity + mouseInfluence * 0.3;
-      
-      // Color gradient based on position and mouse
-      vec3 color1 = vec3(0.0, 1.0, 1.0); // Cyan
-      vec3 color2 = vec3(0.0, 0.5, 1.0); // Blue
-      vec3 color3 = vec3(0.0, 0.25, 0.5); // Dark blue
-      
-      vec3 color = mix(color3, mix(color2, color1, mouseInfluence), intensity);
-      
-      gl_FragColor = vec4(color * intensity, intensity);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
     }
   `;
+
+  // Fragment shader for hex nodes
+  const hexFragmentShader = `
+    uniform vec3 colorStops[3];
+    varying float vDistance;
+    varying float vIntensity;
+    varying vec3 vPosition;
+    
+    void main() {
+      // Soft circular gradient for node
+      vec2 center = gl_PointCoord - vec2(0.5);
+      float dist = length(center);
+      float alpha = 1.0 - smoothstep(0.3, 0.5, dist);
+      
+      // Color mixing based on intensity and distance
+      vec3 color = mix(colorStops[2], mix(colorStops[1], colorStops[0], vIntensity), vIntensity);
+      
+      // Glow effect
+      float glow = exp(-vDistance * 0.5) * vIntensity;
+      color += vec3(glow * 0.3, glow * 0.6, glow);
+      
+      gl_FragColor = vec4(color, alpha * vIntensity);
+    }
+  `;
+
+  // Line shader for connections
+  const lineVertexShader = `
+    uniform float time;
+    uniform vec2 mouse;
+    varying float vOpacity;
+    
+    void main() {
+      vec3 pos = position;
+      
+      // Distance from mouse for line opacity
+      float mouseDistance = distance(pos.xy, mouse * 10.0 - vec2(5.0, 5.0));
+      vOpacity = 0.1 + (1.0 - smoothstep(0.0, 4.0, mouseDistance)) * 0.3;
+      
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+    }
+  `;
+
+  const lineFragmentShader = `
+    uniform vec3 colorStops[3];
+    varying float vOpacity;
+    
+    void main() {
+      gl_FragColor = vec4(colorStops[1], vOpacity);
+    }
+  `;
+
+  useImperativeHandle(ref, () => ({
+    pause: () => setIsPaused(true),
+    resume: () => setIsPaused(false)
+  }));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -121,94 +178,154 @@ export const HexHero: React.FC<HexHeroProps> = ({
 
     // Scene setup
     const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const camera = new THREE.PerspectiveCamera(75, canvas.offsetWidth / canvas.offsetHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ 
       canvas, 
       alpha: true, 
-      antialias: performanceMode === 'high' 
+      antialias: perfMode === 'high',
+      powerPreference: perfMode === 'high' ? 'high-performance' : 'low-power'
     });
     
     renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
-    renderer.setPixelRatio(performanceMode === 'high' ? window.devicePixelRatio : 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, perfMode === 'high' ? 2 : 1));
+    renderer.setClearColor(0x000000, 0);
 
-    // Create shader material
-    const material = new THREE.ShaderMaterial({
+    // Generate hex grid
+    const { positions, connections } = generateHexGrid();
+
+    // Create hex node geometry and material
+    const hexGeometry = new THREE.CircleGeometry(0.05, 6);
+    const hexMaterial = new THREE.ShaderMaterial({
       uniforms: {
         time: { value: 0 },
         mouse: { value: new THREE.Vector2() },
-        resolution: { value: new THREE.Vector2(canvas.offsetWidth, canvas.offsetHeight) },
         rippleStrength: { value: rippleStrength },
-        noiseAmount: { value: noiseAmount }
+        noise: { value: noise },
+        colorStops: { 
+          value: colorStops.map(color => new THREE.Color(color))
+        }
       },
-      vertexShader,
-      fragmentShader,
+      vertexShader: hexVertexShader,
+      fragmentShader: hexFragmentShader,
       transparent: true,
       blending: THREE.AdditiveBlending
     });
 
-    // Create geometry
-    const geometry = new THREE.PlaneGeometry(2, 2);
-    const mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    // Create instanced mesh for hex nodes
+    const hexMesh = new THREE.InstancedMesh(hexGeometry, hexMaterial, positions.length);
+    positions.forEach((pos, i) => {
+      const matrix = new THREE.Matrix4();
+      matrix.setPosition(pos);
+      hexMesh.setMatrixAt(i, matrix);
+      
+      // Set instance index for shader
+      hexMesh.geometry.setAttribute('instanceIndex', 
+        new THREE.InstancedBufferAttribute(new Float32Array(positions.map((_, idx) => idx)), 1)
+      );
+    });
+    hexMesh.instanceMatrix.needsUpdate = true;
+    scene.add(hexMesh);
+
+    // Create line connections
+    const lineGeometry = new THREE.BufferGeometry();
+    const linePositions = new Float32Array(connections.length * 3);
+    connections.forEach((pos, i) => {
+      linePositions[i * 3] = pos.x;
+      linePositions[i * 3 + 1] = pos.y;
+      linePositions[i * 3 + 2] = pos.z;
+    });
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+
+    const lineMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        mouse: { value: new THREE.Vector2() },
+        colorStops: { 
+          value: colorStops.map(color => new THREE.Color(color))
+        }
+      },
+      vertexShader: lineVertexShader,
+      fragmentShader: lineFragmentShader,
+      transparent: true,
+      opacity: 0.3
+    });
+
+    const lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
+    scene.add(lineMesh);
+
+    // Position camera
+    camera.position.z = 8;
 
     // Store references
     sceneRef.current = scene;
     rendererRef.current = renderer;
     cameraRef.current = camera;
-    materialRef.current = material;
+    hexMeshRef.current = hexMesh;
+    lineMeshRef.current = lineMesh;
 
     return () => {
       renderer.dispose();
-      geometry.dispose();
-      material.dispose();
+      hexGeometry.dispose();
+      hexMaterial.dispose();
+      lineGeometry.dispose();
+      lineMaterial.dispose();
     };
-  }, [performanceMode, rippleStrength, noiseAmount]);
+  }, [gridDensity, rippleStrength, noise, perfMode, colorStops]);
 
   // Handle resize
   useEffect(() => {
     const handleResize = () => {
       const canvas = canvasRef.current;
       const renderer = rendererRef.current;
-      const material = materialRef.current;
+      const camera = cameraRef.current;
       
-      if (!canvas || !renderer || !material) return;
+      if (!canvas || !renderer || !camera) return;
       
       const { offsetWidth, offsetHeight } = canvas;
+      camera.aspect = offsetWidth / offsetHeight;
+      camera.updateProjectionMatrix();
       renderer.setSize(offsetWidth, offsetHeight);
-      material.uniforms.resolution.value.set(offsetWidth, offsetHeight);
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle mouse movement
+  // Handle mouse/touch movement
   useEffect(() => {
     const canvas = canvasRef.current;
-    const material = materialRef.current;
     
-    if (!canvas || !material) return;
+    if (!canvas) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = 1 - (e.clientY - rect.top) / rect.height;
+      let clientX, clientY;
       
-      mouseRef.current = { x, y };
-      material.uniforms.mouse.value.set(x, y);
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        const touch = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const x = (touch.clientX - rect.left) / rect.width;
-        const y = 1 - (touch.clientY - rect.top) / rect.height;
-        
-        mouseRef.current = { x, y };
-        material.uniforms.mouse.value.set(x, y);
+      if (e instanceof MouseEvent) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      } else {
+        if (e.touches.length === 0) return;
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+      
+      const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      
+      mouseRef.current.set(x, y);
+      
+      // Update shader uniforms
+      if (hexMeshRef.current) {
+        (hexMeshRef.current.material as THREE.ShaderMaterial).uniforms.mouse.value.copy(mouseRef.current);
+      }
+      if (lineMeshRef.current) {
+        (lineMeshRef.current.material as THREE.ShaderMaterial).uniforms.mouse.value.copy(mouseRef.current);
       }
     };
+
+    const handleMouseMove = (e: MouseEvent) => handlePointerMove(e);
+    const handleTouchMove = (e: TouchEvent) => handlePointerMove(e);
 
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
@@ -219,17 +336,62 @@ export const HexHero: React.FC<HexHeroProps> = ({
     };
   }, []);
 
+  // Device motion for mobile parallax
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.DeviceMotionEvent) return;
+
+    const handleDeviceMotion = (e: DeviceMotionEvent) => {
+      if (e.accelerationIncludingGravity) {
+        const x = Math.max(-0.5, Math.min(0.5, (e.accelerationIncludingGravity.x || 0) / 20));
+        const y = Math.max(-0.5, Math.min(0.5, (e.accelerationIncludingGravity.y || 0) / 20));
+        setDeviceMotion(new THREE.Vector2(x, y));
+      }
+    };
+
+    window.addEventListener('devicemotion', handleDeviceMotion);
+    return () => window.removeEventListener('devicemotion', handleDeviceMotion);
+  }, []);
+
+  // Parallax tilt effect
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (!camera) return;
+
+    const isMobile = window.innerWidth < 768;
+    const tiltStrength = isMobile ? 0.02 : 0.05;
+    
+    if (isMobile) {
+      // Use device motion on mobile
+      camera.rotation.x = deviceMotion.y * tiltStrength;
+      camera.rotation.y = deviceMotion.x * tiltStrength;
+    } else {
+      // Use mouse position on desktop
+      const tiltX = mouseRef.current.y * tiltStrength;
+      const tiltY = mouseRef.current.x * tiltStrength;
+      camera.rotation.x = tiltX;
+      camera.rotation.y = tiltY;
+    }
+  }, [deviceMotion]);
+
   // Animation loop
   useEffect(() => {
-    if (!isVisible || !supportsWebGL) return;
+    if (!isVisible || !supportsWebGL || isPaused) return;
 
     const animate = () => {
       timeRef.current += 0.016; // ~60fps
       
-      if (materialRef.current) {
-        materialRef.current.uniforms.time.value = timeRef.current;
+      // Update shader uniforms
+      if (hexMeshRef.current) {
+        const material = hexMeshRef.current.material as THREE.ShaderMaterial;
+        material.uniforms.time.value = timeRef.current;
       }
       
+      if (lineMeshRef.current) {
+        const material = lineMeshRef.current.material as THREE.ShaderMaterial;
+        material.uniforms.time.value = timeRef.current;
+      }
+      
+      // Render scene
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
@@ -244,7 +406,7 @@ export const HexHero: React.FC<HexHeroProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isVisible, supportsWebGL]);
+  }, [isVisible, supportsWebGL, isPaused]);
 
   // Intersection Observer for performance
   useEffect(() => {
@@ -264,7 +426,7 @@ export const HexHero: React.FC<HexHeroProps> = ({
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     
-    const handleChange = () => setIsVisible(!mediaQuery.matches);
+    const handleChange = () => setIsPaused(mediaQuery.matches);
     
     handleChange();
     mediaQuery.addEventListener('change', handleChange);
@@ -273,21 +435,33 @@ export const HexHero: React.FC<HexHeroProps> = ({
   }, []);
 
   if (!supportsWebGL) {
-    // Fallback SVG for unsupported devices
+    // Fallback static SVG
     return (
-      <div className="absolute inset-0 bg-gradient-hero opacity-30">
-        <svg className="w-full h-full" viewBox="0 0 400 300">
+      <div className="absolute inset-0 bg-gradient-hero opacity-40">
+        <svg className="w-full h-full" viewBox="0 0 800 600">
           <defs>
-            <pattern id="hexPattern" x="0" y="0" width="40" height="35" patternUnits="userSpaceOnUse">
+            <pattern id="hexPattern" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
               <polygon
-                points="20,0 35,12 35,23 20,35 5,23 5,12"
+                points="30,4 52,16 52,36 30,48 8,36 8,16"
                 fill="none"
                 stroke="hsl(180 100% 60%)"
                 strokeWidth="1"
-                opacity="0.3"
+                opacity="0.4"
+              />
+              <circle
+                cx="30"
+                cy="26"
+                r="2"
+                fill="hsl(180 100% 70%)"
+                opacity="0.6"
               />
             </pattern>
+            <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="hsl(200 50% 5%)" />
+              <stop offset="100%" stopColor="hsl(220 50% 10%)" />
+            </linearGradient>
           </defs>
+          <rect width="100%" height="100%" fill="url(#bgGradient)" />
           <rect width="100%" height="100%" fill="url(#hexPattern)" />
         </svg>
       </div>
@@ -295,10 +469,14 @@ export const HexHero: React.FC<HexHeroProps> = ({
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ mixBlendMode: 'screen' }}
-    />
+    <div className="absolute inset-0">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+        style={{ mixBlendMode: 'screen' }}
+      />
+    </div>
   );
-};
+});
+
+HexHero.displayName = 'HexHero';
