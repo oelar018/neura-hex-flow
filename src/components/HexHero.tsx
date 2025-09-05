@@ -287,8 +287,22 @@ export const HexHero = forwardRef<HexHeroApi, HexHeroProps>(({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Prevent context conflicts during hot reload
+    const existingContext = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (existingContext && rendererRef.current) {
+      // Clean up existing renderer first
+      rendererRef.current.dispose();
+      rendererRef.current = undefined;
+    }
+
     // Check WebGL support
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    let gl;
+    try {
+      gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    } catch (error) {
+      console.warn('WebGL context creation failed:', error);
+    }
+    
     if (!gl) {
       setSupportsWebGL(false);
       return;

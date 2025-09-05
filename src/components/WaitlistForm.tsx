@@ -199,8 +199,10 @@ export const WaitlistForm: React.FC = () => {
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           placeholder="your.email@example.com"
-          className="bg-card border-border focus:border-primary"
+          className="bg-card border-border focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           required
+          aria-describedby="email-error"
+          aria-invalid={!validateEmail(formData.email) && formData.email.length > 0}
         />
       </div>
 
@@ -214,8 +216,12 @@ export const WaitlistForm: React.FC = () => {
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="Your name"
-          className="bg-card border-border focus:border-primary"
+          className="bg-card border-border focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          aria-describedby="name-help"
         />
+        <p id="name-help" className="text-xs text-foreground-muted">
+          Optional - helps us personalize your experience
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -225,8 +231,9 @@ export const WaitlistForm: React.FC = () => {
         <Select
           value={formData.useCase}
           onValueChange={(value) => setFormData({ ...formData, useCase: value })}
+          aria-describedby="usecase-help"
         >
-          <SelectTrigger className="bg-card border-border focus:border-primary">
+          <SelectTrigger className="bg-card border-border focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
             <SelectValue placeholder="Select your use case" />
           </SelectTrigger>
           <SelectContent className="bg-popover border-border">
@@ -237,6 +244,9 @@ export const WaitlistForm: React.FC = () => {
             ))}
           </SelectContent>
         </Select>
+        <p id="usecase-help" className="text-xs text-foreground-muted">
+          Helps us prioritize features for your needs
+        </p>
       </div>
 
       <div className="flex items-center space-x-2">

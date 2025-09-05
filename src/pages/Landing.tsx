@@ -9,11 +9,22 @@ export const Landing: React.FC = () => {
   const [showVideoModal, setShowVideoModal] = useState(false);
 
   const scrollToWaitlist = () => {
-    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('waitlist')?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
+    });
   };
 
   return (
     <div className="min-h-screen bg-gradient-primary font-inter">
+      {/* Skip to content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg z-50"
+      >
+        Skip to main content
+      </a>
+      
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Interactive Hexagon Background */}
@@ -28,15 +39,15 @@ export const Landing: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-hero" />
         
         {/* Hero Content */}
-        <div className="relative z-10 container mx-auto px-6 text-center">
+        <div id="main-content" className="relative z-10 container mx-auto px-6 text-center">
           {/* Logo */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-primary tracking-wide">
+          <header className="mb-8">
+            <div className="text-2xl font-bold text-primary tracking-wide">
               Neura AI
-            </h1>
-          </div>
+            </div>
+          </header>
           
-          {/* Main Headline */}
+          {/* Main Headline - Only H1 on page */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
             Answers at the speed
             <br />
