@@ -17,7 +17,14 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
         {/* p5 hex sculpture background (behind content) */}
-        <HexDotsCanvas className="z-0" rings={12} dotSize={3.2} glowStrength={0.8} />
+       <HexDotsCanvas
+  className="z-0"
+  rings={13}          // 12–14 looks good on desktop
+  dotSize={3.0}       // 2.8–3.4
+  glowStrength={0.85} // 0.7–0.9
+  idleSpeedDeg={0.16} // 0.12–0.22 subtle
+  shimmer={0.10}      // set 0 to disable shimmer
+/>
 
         {/* Foreground content */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
