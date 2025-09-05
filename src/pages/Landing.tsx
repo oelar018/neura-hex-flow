@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HexHero } from '@/components/HexHero';
+import { HexHeroP5 } from '@/components/HexHeroP5';
 import { VideoModal } from '@/components/VideoModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
 import { Button } from '@/components/ui/button';
@@ -28,10 +28,11 @@ export const Landing: React.FC = () => {
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Interactive Hexagon Background */}
-        <HexHero 
+        <HexHeroP5 
           gridDensity={25}
-          rippleStrength={1.2}
-          noise={0.3}
+          rippleStrength={0.7}
+          glowStrength={0.8}
+          noiseAmt={0.2}
           perfMode="hi"
         />
         
