@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HexHero } from '@/components/HexHero';
+import { HexSculptP5 } from '@/components/HexSculptP5';
 import { VideoModal } from '@/components/VideoModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
 import { Button } from '@/components/ui/button';
@@ -15,17 +15,17 @@ export const Landing: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-primary font-inter">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        {/* Interactive Hexagon Background */}
-        <HexHero 
-          gridDensity={25}
-          rippleStrength={1.2}
-          noiseAmount={0.3}
-          performanceMode="high"
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden" style={{ background: '#0A0A0A' }}>
+        {/* Interactive Hex Sculpture Background */}
+        <HexSculptP5 
+          rings={10}
+          dotSize={3.0}
+          glowStrength={0.8}
+          idleSpeed={0.002}
+          focusCount={60}
+          noiseAmt={0.15}
+          perfMode="auto"
         />
-        
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-hero" />
         
         {/* Hero Content */}
         <div className="relative z-10 container mx-auto px-6 text-center">
