@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HexHeroP5 } from '@/components/HexHeroP5';
+import { HexHero } from '@/components/HexHero';
 import { VideoModal } from '@/components/VideoModal';
 import { WaitlistForm } from '@/components/WaitlistForm';
 import { Button } from '@/components/ui/button';
@@ -9,46 +9,34 @@ export const Landing: React.FC = () => {
   const [showVideoModal, setShowVideoModal] = useState(false);
 
   const scrollToWaitlist = () => {
-    document.getElementById('waitlist')?.scrollIntoView({ 
-      behavior: 'smooth',
-      block: 'start'
-    });
+    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
     <div className="min-h-screen bg-gradient-primary font-inter">
-      {/* Skip to content link for accessibility */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg z-50"
-      >
-        Skip to main content
-      </a>
-      
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
         {/* Interactive Hexagon Background */}
-        <HexHeroP5 
+        <HexHero 
           gridDensity={25}
-          rippleStrength={0.7}
-          glowStrength={0.8}
-          noiseAmt={0.2}
-          perfMode="hi"
+          rippleStrength={1.2}
+          noiseAmount={0.3}
+          performanceMode="high"
         />
         
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-hero" />
         
         {/* Hero Content */}
-        <div id="main-content" className="relative z-10 container mx-auto px-6 text-center">
+        <div className="relative z-10 container mx-auto px-6 text-center">
           {/* Logo */}
-          <header className="mb-8">
-            <div className="text-2xl font-bold text-primary tracking-wide">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-primary tracking-wide">
               Neura AI
-            </div>
-          </header>
+            </h1>
+          </div>
           
-          {/* Main Headline - Only H1 on page */}
+          {/* Main Headline */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
             Answers at the speed
             <br />

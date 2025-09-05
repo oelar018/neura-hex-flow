@@ -90,38 +90,9 @@
     scroll-behavior: smooth;
   }
   
-  /* Focus styles - Enhanced visibility and contrast */
+  /* Focus styles */
   *:focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
-  }
-  
-  /* Ensure focus rings are visible on all interactive elements */
-  button:focus-visible,
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible,
-  a:focus-visible,
-  [tabindex]:focus-visible {
-    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
-  }
-  
-  /* High contrast focus for better accessibility */
-  @media (prefers-contrast: high) {
-    *:focus-visible {
-      @apply ring-4 ring-primary ring-offset-4;
-    }
-  }
-  
-  /* Respect reduced motion preferences */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
   }
 }
 
