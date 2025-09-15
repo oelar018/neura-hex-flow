@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import HexHeroThree from "@/components/HexHeroThree";
+import HexHeroNeura from "@/components/HexHeroNeura";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,18 @@ export default function Landing() {
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* p5 hex sculpture background (behind content) */}
-        <HexHeroThree className="z-0"
+        {/* Cool hexagon effect background */}
+        <HexHeroNeura
+          className="z-0"
           rings={12}
-          dotSize={5.0}
-          glowStrength={1.0}
+          dotSize={5}
+          glowStrength={1}
           idleSpeed={0.15}
+          isPaused={showVideoModal}
+          parallax={0.35}
+          rippleSpeed={0.7}
+          rippleFreq={0.35}
+          noiseAmt={0.25}
         />
 
         {/* Foreground content */}
