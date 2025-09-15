@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import HexGridNeura from "@/components/HexGridNeura";
+import HexDotsMonochrome from "@/components/HexDotsMonochrome";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -16,25 +16,26 @@ export default function Landing() {
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* Hexagon glow background */}
-        <HexGridNeura
+        {/* Monochrome hex-dot sculpture background */}
+        <HexDotsMonochrome
           className="z-0"
-          isPaused={showVideoModal}
-          hexSize={0.9}        // larger -> bigger hex tiles
-          lineWidth={0.06}     // glow line thickness
-          glowStrength={1.2}   // brightness boost
-          shimmer={0.15}       // subtle twinkle
-          breatheSpeed={0.6}   // gentle pulse
-          parallax={0.28}      // slight 3D tilt with cursor
+          rings={12}        // try 12–14 desktop, 9–10 mobile
+          dotSize={5.0}
+          idleSpeed={0.10}  // slow, subtle rotation
+          pulseSpeed={0.85} // gentle breathing
+          pulseDepth={0.12} // subtle amplitude
         />
+
+        {/* Optional: very soft vignette to match the cinematic feel */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,transparent_55%,rgba(0,0,0,0.38)_100%)]" />
 
         {/* Foreground content */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
-          <p className="text-cyan-300 font-semibold">Neura AI</p>
+          <p className="text-neutral-200 font-semibold">Neura AI</p>
 
           <h1 className="mt-4 text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white">
             Answers at the speed <br className="hidden sm:block" />
-            <span className="text-cyan-300">of conversation.</span>
+            <span className="text-white/80">of conversation.</span>
           </h1>
 
           <p className="mt-6 text-lg text-neutral-300">
@@ -71,8 +72,8 @@ export default function Landing() {
 
             <div className="grid md:grid-cols-3 gap-8">
               <div className="text-center space-y-4 p-6 rounded-2xl bg-neutral-900/60 border border-white/10">
-                <div className="w-12 h-12 mx-auto bg-cyan-300/10 rounded-xl flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-cyan-300" />
+                <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-white/5">
+                  <Zap className="w-6 h-6 text-white/80" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">
                   Stay in the flow—no context switching.
@@ -80,8 +81,8 @@ export default function Landing() {
               </div>
 
               <div className="text-center space-y-4 p-6 rounded-2xl bg-neutral-900/60 border border-white/10">
-                <div className="w-12 h-12 mx-auto bg-cyan-300/10 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-cyan-300" />
+                <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-white/5">
+                  <CheckCircle className="w-6 h-6 text-white/80" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">
                   Only what's relevant—signal, not noise.
@@ -89,8 +90,8 @@ export default function Landing() {
               </div>
 
               <div className="text-center space-y-4 p-6 rounded-2xl bg-neutral-900/60 border border-white/10">
-                <div className="w-12 h-12 mx-auto bg-cyan-300/10 rounded-xl flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-cyan-300" />
+                <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-white/5">
+                  <Shield className="w-6 h-6 text-white/80" />
                 </div>
                 <h3 className="text-lg font-semibold text-white">
                   Adapts to your setting—meetings, sales, interviews, diagnostics.
@@ -135,13 +136,13 @@ export default function Landing() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-neutral-400 text-sm">© 2025 Neura AI. All rights reserved.</div>
             <nav className="flex gap-6">
-              <a href="/privacy" className="text-neutral-400 hover:text-cyan-300 text-sm transition-colors">
+              <a href="/privacy" className="text-neutral-400 hover:text-white text-sm transition-colors">
                 Privacy
               </a>
-              <a href="/terms" className="text-neutral-400 hover:text-cyan-300 text-sm transition-colors">
+              <a href="/terms" className="text-neutral-400 hover:text-white text-sm transition-colors">
                 Terms
               </a>
-              <a href="/contact" className="text-neutral-400 hover:text-cyan-300 text-sm transition-colors">
+              <a href="/contact" className="text-neutral-400 hover:text-white text-sm transition-colors">
                 Contact
               </a>
             </nav>
