@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import HexHeroNeura from "@/components/HexHeroNeura";
+import HexGridNeura from "@/components/HexGridNeura";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -16,18 +16,16 @@ export default function Landing() {
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* Cool hexagon effect background */}
-        <HexHeroNeura
+        {/* Hexagon glow background */}
+        <HexGridNeura
           className="z-0"
-          rings={12}
-          dotSize={5}
-          glowStrength={1}
-          idleSpeed={0.15}
           isPaused={showVideoModal}
-          parallax={0.35}
-          rippleSpeed={0.7}
-          rippleFreq={0.35}
-          noiseAmt={0.25}
+          hexSize={0.9}        // larger -> bigger hex tiles
+          lineWidth={0.06}     // glow line thickness
+          glowStrength={1.2}   // brightness boost
+          shimmer={0.15}       // subtle twinkle
+          breatheSpeed={0.6}   // gentle pulse
+          parallax={0.28}      // slight 3D tilt with cursor
         />
 
         {/* Foreground content */}
@@ -54,6 +52,7 @@ export default function Landing() {
               size="lg"
               onClick={() => setShowVideoModal(true)}
               className="group"
+              aria-label="Watch a 30-second product preview"
             >
               <Play className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
               Watch a 30s preview
