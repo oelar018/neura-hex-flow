@@ -41,10 +41,10 @@ function NeuraBackground({
       linkDistance: 105,     // was 130
       linkWidth: 0.7,        // was 0.9
       linkChance: 0.55,      // draw ~55% of eligible links
-      heartbeatMs: 2200,     // was 1350
-      twinkleMs: 3200,       // was 2200
-      heartbeatVelAmp: 0.08, // was 0.15
-      heartbeatGlowAmp: 0.25 // was 0.35 (node glow)
+      heartbeatMs: 3600,     // was 1350
+      twinkleMs: 5200,       // was 2200
+      heartbeatVelAmp: 0.06, // was 0.15
+      heartbeatGlowAmp: 0.20 // was 0.35 (node glow)
     }),
     []
   );
