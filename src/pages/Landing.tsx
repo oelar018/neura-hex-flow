@@ -12,7 +12,7 @@ export default function Landing() {
     document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // pointer → CSS vars for light parallax/focus
+  // subtle parallax focus following the cursor (very gentle)
   useEffect(() => {
     const el = heroRef.current;
     if (!el) return;
@@ -38,41 +38,49 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
-      {/* ------- INLINE COSMIC/NEURAL BACKGROUND CSS (pure CSS) ------- */}
+      {/* --- PURE CSS “NEURAL SPACE” BACKGROUND --- */}
       <style>{`
-        /* Animatable numbers */
+        /* Animatable custom props */
         @property --pulse { syntax: "<number>"; inherits: false; initial-value: 0; }
-        @property --shiftX { syntax: "<percentage>"; inherits: false; initial-value: 50%; }
-        @property --shiftY { syntax: "<percentage>"; inherits: false; initial-value: 50%; }
+        @property --mx { syntax: "<number>"; inherits: true; initial-value: 0.5; }
+        @property --my { syntax: "<number>"; inherits: true; initial-value: 0.5; }
 
-        /* Keyframes */
-        @keyframes pulse {
-          0%, 100% { --pulse: 0; }
-          50%      { --pulse: 1; }
+        /* Heartbeat (slow pulse) */
+        @keyframes heartbeat {
+          0%, 100% { --pulse: 0; filter: brightness(1); }
+          30%      { --pulse: 1; filter: brightness(1.05); }
+          60%      { --pulse: 0.2; filter: brightness(1.02); }
         }
-        @keyframes driftSlow {
-          0%   { transform: translate3d(0,0,0) scale(1.0) rotate(0deg); }
-          50%  { transform: translate3d(0,-0.6%,0) scale(1.01) rotate(0.4deg); }
-          100% { transform: translate3d(0,0,0) scale(1.0) rotate(0deg); }
+
+        /* Ultra-slow drift */
+        @keyframes driftUltraSlow {
+          0%   { transform: translate3d(0,0,0) scale(1.00) rotate(0deg); }
+          50%  { transform: translate3d(0,-0.4%,0) scale(1.01) rotate(0.3deg); }
+          100% { transform: translate3d(0,0,0) scale(1.00) rotate(0deg); }
         }
-        @keyframes starflowA {
+
+        /* Starfields: very slow background-position shifts */
+        @keyframes starfieldA {
           0%   { background-position: 0% 0%; }
-          100% { background-position: 200% 120%; }
+          100% { background-position: 40% 24%; }
         }
-        @keyframes starflowB {
+        @keyframes starfieldB {
           0%   { background-position: 0% 0%; }
-          100% { background-position: -180% -140%; }
+          100% { background-position: -32% -28%; }
         }
-        @keyframes twinkle {
-          0%, 100% { opacity: 0.5; }
-          50%      { opacity: 1; }
+
+        /* Gentle twinkle (randomized per layer using different durations) */
+        @keyframes twinkleSlow {
+          0%, 100% { opacity: 0.45; }
+          50%      { opacity: 0.85; }
         }
-        @keyframes shoot {
-          0% { transform: translate3d(0,0,0) rotate(15deg); opacity: 0; }
-          10%{ opacity: 1; }
-          100% { transform: translate3d(120vw, -60vh, 0) rotate(15deg); opacity: 0; }
+        @keyframes twinkleSlower {
+          0%, 100% { opacity: 0.40; }
+          50%      { opacity: 0.80; }
         }
-        @keyframes orbitSpin {
+
+        /* Super-slow filament rotation */
+        @keyframes filamentsSpin {
           0%   { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
@@ -81,156 +89,135 @@ export default function Landing() {
         .absfill { position: absolute; inset: 0; pointer-events: none; }
         .gpu { will-change: transform, opacity, background-position, filter; }
 
-        /* -- Center follows pointer subtly -- */
-        .cosmos {
+        /* Root container variables (center follows pointer very slightly) */
+        .neura-space {
           --mx: 0.5;
           --my: 0.5;
-          --cx: calc(50% + (var(--mx) - 0.5) * 6%);
-          --cy: calc(47% + (var(--my) - 0.5) * 4%);
+          --cx: calc(50% + (var(--mx) - 0.5) * 4%);
+          --cy: calc(48% + (var(--my) - 0.5) * 3%);
         }
 
-        /* 1) Deep space gradient base with pulsing core + teal aura */
+        /* 1) CORE: slow heartbeat + soft rings (white + teal) */
         .layer-core {
           z-index: 0;
           background-image:
             radial-gradient(
               circle at var(--cx) var(--cy),
               rgba(255,255,255,0.10) 0%,
-              rgba(255,255,255,0.06) calc(12% + 4% * var(--pulse)),
-              rgba(255,255,255,0.02) calc(30% + 5% * var(--pulse)),
-              rgba(0,0,0,0) 65%
+              rgba(255,255,255,0.06) calc(12% + 3% * var(--pulse)),
+              rgba(255,255,255,0.02) calc(28% + 4% * var(--pulse)),
+              rgba(0,0,0,0) 62%
             ),
             radial-gradient(
               circle at var(--cx) var(--cy),
-              rgba(160,255,245,0.18) 0%,
-              rgba(160,255,245,0.10) calc(20% + 6% * var(--pulse)),
-              rgba(160,255,245,0.045) calc(36% + 7% * var(--pulse)),
-              rgba(0,0,0,0) 75%
+              rgba(160,255,245,0.16) 0%,
+              rgba(160,255,245,0.09) calc(20% + 4% * var(--pulse)),
+              rgba(160,255,245,0.04) calc(36% + 5% * var(--pulse)),
+              rgba(0,0,0,0) 74%
             ),
-            radial-gradient(circle at 50% 60%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 70%);
+            radial-gradient(
+              circle at 50% 60%,
+              rgba(255,255,255,0.05) 0%,
+              rgba(0,0,0,0) 70%
+            );
           background-repeat: no-repeat;
           background-size: 140% 140%, 160% 160%, 200% 200%;
-          animation: pulse 6.2s ease-in-out infinite, driftSlow 28s ease-in-out infinite;
-          filter: saturate(1.05) contrast(1.02);
+          animation:
+            heartbeat 8.5s ease-in-out infinite,
+            driftUltraSlow 120s ease-in-out infinite;
+          filter: saturate(1.03) contrast(1.02);
         }
 
-        /* 2) Parallax starfields (atoms) */
+        /* 2) STARFIELD A: fine, dense speckles, very slow drift, soft twinkle */
         .layer-starsA {
           z-index: 1;
-          opacity: 0.65;
+          opacity: 0.55;
           background-image:
-            radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.08) 60%, transparent 61%),
-            radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.06) 60%, transparent 61%),
-            radial-gradient(1px 1px at 40% 60%, rgba(160,255,245,0.08) 60%, transparent 61%),
-            radial-gradient(1px 1px at 85% 35%, rgba(255,255,255,0.06) 60%, transparent 61%);
-          background-size: 220px 220px, 260px 260px, 300px 300px, 280px 280px;
+            radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.08) 60%, transparent 61%),
+            radial-gradient(1px 1px at 68% 78%, rgba(255,255,255,0.06) 60%, transparent 61%),
+            radial-gradient(1px 1px at 42% 62%, rgba(160,255,245,0.08) 60%, transparent 61%),
+            radial-gradient(1px 1px at 84% 38%, rgba(255,255,255,0.06) 60%, transparent 61%),
+            radial-gradient(1px 1px at 28% 72%, rgba(255,255,255,0.06) 60%, transparent 61%);
+          background-size: 260px 260px, 280px 280px, 300px 300px, 320px 320px, 260px 260px;
           background-repeat: repeat;
-          animation: starflowA 60s linear infinite;
-          /* parallax offset from pointer */
+          animation:
+            starfieldA 160s linear infinite,
+            twinkleSlow 7.5s ease-in-out infinite;
+          /* gentle parallax */
           background-position:
+            calc((var(--mx) - 0.5) * 5%) calc((var(--my) - 0.5) * 5%),
+            calc((var(--mx) - 0.5) * 6%) calc((var(--my) - 0.5) * 6%),
+            calc((var(--mx) - 0.5) * 7%) calc((var(--my) - 0.5) * 7%),
             calc((var(--mx) - 0.5) * 8%) calc((var(--my) - 0.5) * 8%),
-            calc((var(--mx) - 0.5) * 10%) calc((var(--my) - 0.5) * 10%),
-            calc((var(--mx) - 0.5) * 12%) calc((var(--my) - 0.5) * 12%),
-            calc((var(--mx) - 0.5) * 14%) calc((var(--my) - 0.5) * 14%);
+            calc((var(--mx) - 0.5) * 9%) calc((var(--my) - 0.5) * 9%);
         }
+
+        /* 3) STARFIELD B: larger sparse atoms, even slower drift, slower twinkle */
         .layer-starsB {
           z-index: 2;
-          opacity: 0.55;
+          opacity: 0.48;
           background-image:
             radial-gradient(1.5px 1.5px at 35% 25%, rgba(255,255,255,0.12) 60%, transparent 61%),
             radial-gradient(1.5px 1.5px at 80% 70%, rgba(160,255,245,0.12) 60%, transparent 61%),
-            radial-gradient(1.5px 1.5px at 55% 85%, rgba(255,255,255,0.10) 60%, transparent 61%);
-          background-size: 360px 360px, 420px 420px, 380px 380px;
+            radial-gradient(1.5px 1.5px at 55% 85%, rgba(255,255,255,0.10) 60%, transparent 61%),
+            radial-gradient(2px 2px at 25% 40%, rgba(255,255,255,0.10) 60%, transparent 61%);
+          background-size: 360px 360px, 420px 420px, 380px 380px, 460px 460px;
           background-repeat: repeat;
-          animation: starflowB 70s linear infinite;
+          animation:
+            starfieldB 200s linear infinite,
+            twinkleSlower 11s ease-in-out infinite;
           background-position:
+            calc((var(--mx) - 0.5) * -4%) calc((var(--my) - 0.5) * -4%),
+            calc((var(--mx) - 0.5) * -5%) calc((var(--my) - 0.5) * -5%),
             calc((var(--mx) - 0.5) * -6%) calc((var(--my) - 0.5) * -6%),
-            calc((var(--mx) - 0.5) * -8%) calc((var(--my) - 0.5) * -8%),
-            calc((var(--mx) - 0.5) * -10%) calc((var(--my) - 0.5) * -10%);
+            calc((var(--mx) - 0.5) * -7%) calc((var(--my) - 0.5) * -7%);
         }
 
-        /* 3) Shooting stars (a few lightweight spans) */
-        .layer-shooters { z-index: 3; overflow: visible; }
-        .shoot {
-          position: absolute;
-          left: -20vw;
-          top: 80vh;
-          width: 120px;
-          height: 2px;
-          background: linear-gradient(90deg, rgba(255,255,255,0.0), rgba(255,255,255,0.9), rgba(160,255,245,0.0));
-          filter: drop-shadow(0 0 6px rgba(160,255,245,0.4));
-          animation: shoot 2.8s ease-in-out infinite;
-          opacity: 0;
-        }
-        /* staggered variants */
-        .shoot:nth-child(1){ animation-delay: 0.3s; top: 72vh; }
-        .shoot:nth-child(2){ animation-delay: 1.6s; top: 64vh; }
-        .shoot:nth-child(3){ animation-delay: 3.2s; top: 78vh; }
-        .shoot:nth-child(4){ animation-delay: 4.9s; top: 69vh; }
-        .shoot:nth-child(5){ animation-delay: 6.6s; top: 82vh; }
-
-        /* 4) Orbiting nodes (feel like neurons firing around a core) */
-        .layer-orbits { z-index: 4; display: grid; place-items: center; }
-        .orbits {
-          position: relative;
-          width: 120vmin;
-          height: 120vmin;
-          opacity: 0.35;
-          transform: translateZ(0);
-          /* pull toward pointer slightly */
-          translate: calc((var(--mx) - 0.5) * 1.2%) calc((var(--my) - 0.5) * 0.8%);
-        }
-        .orbit {
-          position: absolute;
-          inset: 0;
+        /* 4) NEURAL FILAMENTS: ultra-slow rotating conic gradients, masked near center */
+        .layer-filaments-wrap { z-index: 3; display: grid; place-items: center; }
+        .filaments {
+          width: 180vmax;
+          height: 180vmax;
+          opacity: 0.24;
           border-radius: 50%;
-          border: 1px dashed rgba(255,255,255,0.12);
-          mask: radial-gradient(circle at var(--cx) var(--cy), rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,1) 85%);
-          animation: orbitSpin linear infinite;
-        }
-        .orbit:nth-child(1){ animation-duration: 44s; scale: 0.46; }
-        .orbit:nth-child(2){ animation-duration: 66s; scale: 0.62; }
-        .orbit:nth-child(3){ animation-duration: 88s; scale: 0.78; }
-        .orbit:nth-child(4){ animation-duration: 110s; scale: 0.92; }
-
-        /* orbiting nodes */
-        .orbit::after {
-          content: "";
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 8px;
-          height: 8px;
-          margin: -4px 0 0 -4px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0.2));
-          box-shadow:
-            0 0 8px rgba(255,255,255,0.5),
-            0 0 18px rgba(160,255,245,0.25);
-          transform: translateX(calc(50vmin));
-        }
-        /* distribute nodes on different angles with ::before too */
-        .orbit::before {
-          content: "";
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 6px;
-          height: 6px;
-          margin: -3px 0 0 -3px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(160,255,245,0.95), rgba(160,255,245,0.15));
-          box-shadow:
-            0 0 6px rgba(160,255,245,0.5),
-            0 0 14px rgba(160,255,245,0.25);
-          transform: rotate(120deg) translateX(calc(36vmin));
-          filter: saturate(1.1);
+          background:
+            conic-gradient(from 0deg,
+              rgba(160,255,245,0.10) 0deg, rgba(160,255,245,0.00) 30deg,
+              rgba(255,255,255,0.10) 55deg, rgba(255,255,255,0.00) 95deg,
+              rgba(160,255,245,0.08) 135deg, rgba(160,255,245,0.00) 175deg,
+              rgba(255,255,255,0.06) 215deg, rgba(255,255,255,0.00) 245deg,
+              rgba(160,255,245,0.08) 300deg, rgba(160,255,245,0.00) 330deg
+            ),
+            conic-gradient(from 180deg,
+              rgba(255,255,255,0.06) 0deg, rgba(255,255,255,0.00) 40deg,
+              rgba(160,255,245,0.10) 80deg, rgba(160,255,245,0.00) 120deg,
+              rgba(255,255,255,0.08) 170deg, rgba(255,255,255,0.00) 200deg,
+              rgba(160,255,245,0.10) 240deg, rgba(160,255,245,0.00) 280deg,
+              rgba(255,255,255,0.06) 320deg, rgba(255,255,255,0.00) 350deg
+            );
+          -webkit-mask: radial-gradient(circle at var(--cx) var(--cy),
+            rgba(0,0,0,0) 0%,
+            rgba(0,0,0,0.35) calc(16% + 3% * var(--pulse)),
+            rgba(0,0,0,0.65) calc(34% + 4% * var(--pulse)),
+            rgba(0,0,0,0.90) 58%,
+            rgba(0,0,0,1) 76%);
+          mask: radial-gradient(circle at var(--cx) var(--cy),
+            rgba(0,0,0,0) 0%,
+            rgba(0,0,0,0.35) calc(16% + 3% * var(--pulse)),
+            rgba(0,0,0,0.65) calc(34% + 4% * var(--pulse)),
+            rgba(0,0,0,0.90) 58%,
+            rgba(0,0,0,1) 76%);
+          animation: filamentsSpin 180s linear infinite;
+          transform-origin: center center;
         }
 
-        /* 5) Soft vignette for focus */
+        /* 5) SOFT VIGNETTE for focus */
         .layer-vignette {
-          z-index: 5;
-          background: radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%);
+          z-index: 4;
+          background: radial-gradient(ellipse at 50% 48%,
+            rgba(0,0,0,0) 0%,
+            rgba(0,0,0,0) 55%,
+            rgba(0,0,0,0.45) 100%);
         }
 
         /* Reduced motion */
@@ -238,40 +225,24 @@ export default function Landing() {
           .layer-core,
           .layer-starsA,
           .layer-starsB,
-          .layer-orbits .orbit {
+          .filaments {
             animation: none;
           }
-          .layer-shooters { display: none; }
         }
       `}</style>
 
       {/* ---------------------- HERO ---------------------- */}
       <section
         ref={heroRef}
-        className="cosmos relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]"
+        className="neura-space relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]"
       >
-        {/* Cosmic/Neural Background Layers */}
+        {/* Layers (ordered back → front) */}
         <div className="absfill gpu layer-core" />
         <div className="absfill gpu layer-starsA" />
         <div className="absfill gpu layer-starsB" />
-
-        <div className="absfill gpu layer-shooters">
-          <span className="shoot" />
-          <span className="shoot" />
-          <span className="shoot" />
-          <span className="shoot" />
-          <span className="shoot" />
+        <div className="absfill layer-filaments-wrap">
+          <div className="filaments" />
         </div>
-
-        <div className="absfill layer-orbits">
-          <div className="orbits">
-            <div className="orbit" />
-            <div className="orbit" />
-            <div className="orbit" />
-            <div className="orbit" />
-          </div>
-        </div>
-
         <div className="absfill layer-vignette" />
 
         {/* Foreground content */}
