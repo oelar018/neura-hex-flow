@@ -177,7 +177,7 @@ const HexDotsMonochrome: React.FC<Props> = ({
       vertexShader,
       fragmentShader,
       transparent: true,
-      blending: THREE.NormalBlending, // clearer; switch to Additive if you want extra glow
+      blending: THREE.NormalBlending, // <= force strong visibility
       depthTest: false,
     });
 
