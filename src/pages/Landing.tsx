@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -6,123 +6,218 @@ import { ArrowDown, Play, CheckCircle, Users, Zap, Shield } from "lucide-react";
 
 export default function Landing() {
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const heroRef = useRef<HTMLElement | null>(null);
 
   const scrollToWaitlist = () => {
     document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Tiny parallax: move background focus a little with the pointer
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    const onMove = (e: PointerEvent) => {
+      const rect = el.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) / Math.max(1, rect.width);  // 0..1
+      const my = (e.clientY - rect.top) / Math.max(1, rect.height); // 0..1
+      el.style.setProperty("--mx", mx.toString());
+      el.style.setProperty("--my", my.toString());
+    };
+    const onLeave = () => {
+      el.style.setProperty("--mx", "0.5");
+      el.style.setProperty("--my", "0.5");
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerleave", onLeave);
+    // defaults
+    onLeave();
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
-      {/* Inline CSS for the background animation (no extra files, no deps) */}
+      {/* Inline CSS (pure CSS neural vibe — no canvas/webgl) */}
       <style>{`
-        /* UTIL: hardware-accelerate the background element */
-        .neura-bg { will-change: transform, opacity, background-position, background-size; }
+        /* Animate-able number for pulsing */
+        @property --pulse { syntax: "<number>"; inherits: false; initial-value: 0; }
 
-        /* A custom property we animate for "breathing" */
-        @property --pulse {
-          syntax: "<number>";
-          inherits: false;
-          initial-value: 0;
-        }
-
-        /* subtle slow drift */
-        @keyframes neuraDrift {
-          0%   { transform: translate3d(0, 0, 0) scale(1.0); }
-          50%  { transform: translate3d(0, -0.6%, 0) scale(1.01); }
-          100% { transform: translate3d(0, 0, 0) scale(1.0); }
-        }
-
-        /* rhythmic pulse that grows/shrinks the main halo and rings */
+        /* Keyframes */
         @keyframes neuraPulse {
-          0%, 100% { --pulse: 0;   opacity: 0.95; }
-          50%      { --pulse: 1;   opacity: 1.0; }
+          0%, 100% { --pulse: 0; opacity: 0.95; }
+          50%      { --pulse: 1; opacity: 1; }
+        }
+        @keyframes neuraDrift {
+          0%   { transform: translate3d(0,0,0) scale(1.0) rotate(0deg); }
+          50%  { transform: translate3d(0,-0.8%,0) scale(1.01) rotate(0.5deg); }
+          100% { transform: translate3d(0,0,0) scale(1.0) rotate(0deg); }
+        }
+        @keyframes dotsDrift1 {
+          0%   { background-position: 0% 0%; }
+          100% { background-position: 100% 60%; }
+        }
+        @keyframes dotsDrift2 {
+          0%   { background-position: 0% 0%; }
+          100% { background-position: -120% -80%; }
+        }
+        @keyframes webRotate {
+          0%   { transform: translateZ(0) rotate(0deg);   }
+          100% { transform: translateZ(0) rotate(360deg); }
         }
 
-        /* twinkling speckles (very subtle) */
-        @keyframes neuraGrain {
-          0%   { background-position: 0 0, 0 0, 0 0; }
-          100% { background-position: 5px 4px, -3px -2px, 2px -3px; }
+        /* Layer helpers */
+        .absfill { position: absolute; inset: 0; pointer-events: none; }
+        .neura-bg, .neura-aura, .neura-dots-1, .neura-dots-2, .neura-web, .neura-vignette {
+          will-change: transform, opacity, background-position, background-size, filter;
         }
 
-        /* The actual background layer */
+        /* --- Base pulsing core + soft rings (white + teal) --- */
         .neura-bg {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
           z-index: 0;
-
-          /* We stack multiple gradients:
-             1) A central white halo that breathes
-             2) Cyan/teal aura ring that grows subtly
-             3) Wide soft rings for depth
-             4) Very faint speckle/grain layers for life
-          */
+          /* focus follows pointer lightly (center shifts 4–6%) */
+          --cx: calc(50% + (var(--mx, 0.5) - 0.5) * 6%);
+          --cy: calc(48% + (var(--my, 0.5) - 0.5) * 4%);
           background-image:
             radial-gradient(
-              circle at 50% 45%,
+              circle at var(--cx) var(--cy),
               rgba(255,255,255,0.10) 0%,
-              rgba(255,255,255,0.06) calc(15% + 5% * var(--pulse)),
-              rgba(255,255,255,0.02) calc(34% + 6% * var(--pulse)),
-              rgba(0,0,0,0.00) 70%
+              rgba(255,255,255,0.06) calc(12% + 5% * var(--pulse)),
+              rgba(255,255,255,0.02) calc(30% + 6% * var(--pulse)),
+              rgba(0,0,0,0) 70%
             ),
             radial-gradient(
-              circle at 50% 45%,
+              circle at var(--cx) var(--cy),
               rgba(160,255,245,0.18) 0%,
-              rgba(160,255,245,0.10) calc(22% + 6% * var(--pulse)),
-              rgba(160,255,245,0.04) calc(40% + 8% * var(--pulse)),
-              rgba(0,0,0,0.00) 75%
+              rgba(160,255,245,0.10) calc(20% + 6% * var(--pulse)),
+              rgba(160,255,245,0.04) calc(36% + 8% * var(--pulse)),
+              rgba(0,0,0,0) 76%
             ),
             radial-gradient(
-              circle at 50% 60%,
+              circle at calc(var(--cx) + 2%) calc(var(--cy) + 6%),
               rgba(255,255,255,0.06) 0%,
-              rgba(255,255,255,0.03) 30%,
-              rgba(0,0,0,0.00) 75%
-            ),
-            /* faint speckles — three layers, each drifting slightly */
-            radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.05) 50%, transparent 51%),
-            radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.04) 50%, transparent 51%),
-            radial-gradient(1px 1px at 40% 60%, rgba(160,255,245,0.05) 50%, transparent 51%);
-
-          background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat, repeat;
-          background-size:
-            140% 140%, /* white halo */
-            160% 160%, /* teal aura */
-            200% 200%, /* deep rings */
-            auto, auto, auto; /* speckles */
-
-          background-position:
-            50% 45%, /* halo */
-            50% 45%, /* aura */
-            50% 60%, /* deep rings */
-            0 0, 0 0, 0 0; /* speckles */
-
+              rgba(255,255,255,0.03) 28%,
+              rgba(0,0,0,0) 75%
+            );
+          background-repeat: no-repeat, no-repeat, no-repeat;
+          background-size: 140% 140%, 160% 160%, 200% 200%;
+          animation: neuraPulse 6.2s ease-in-out infinite, neuraDrift 28s ease-in-out infinite;
           filter: saturate(1.05) contrast(1.02);
-          animation:
-            neuraPulse 6.2s ease-in-out infinite,
-            neuraDrift 28s ease-in-out infinite,
-            neuraGrain 1.8s steps(2, end) infinite;
         }
 
-        /* Optional vignette to focus content (very subtle) */
+        /* --- Constellation dots (two parallax layers) --- */
+        /* Layer 1: fine dense speckles drifting diagonally */
+        .neura-dots-1 {
+          z-index: 1;
+          opacity: 0.55;
+          background-image:
+            radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.08) 60%, transparent 61%),
+            radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.06) 60%, transparent 61%),
+            radial-gradient(1px 1px at 85% 25%, rgba(160,255,245,0.08) 60%, transparent 61%),
+            radial-gradient(1px 1px at 35% 85%, rgba(255,255,255,0.05) 60%, transparent 61%);
+          background-repeat: repeat;
+          background-size: 240px 240px, 260px 260px, 320px 320px, 300px 300px;
+          animation: dotsDrift1 38s linear infinite;
+          transform: translateZ(0);
+          /* slight parallax */
+          background-position:
+            calc((var(--mx, 0.5) - 0.5) * 6%) calc((var(--my, 0.5) - 0.5) * 6%),
+            calc((var(--mx, 0.5) - 0.5) * 8%) calc((var(--my, 0.5) - 0.5) * 8%),
+            calc((var(--mx, 0.5) - 0.5) * 10%) calc((var(--my, 0.5) - 0.5) * 10%),
+            calc((var(--mx, 0.5) - 0.5) * 12%) calc((var(--my, 0.5) - 0.5) * 12%);
+        }
+        /* Layer 2: bigger, sparser atoms drifting opposite direction */
+        .neura-dots-2 {
+          z-index: 2;
+          opacity: 0.45;
+          background-image:
+            radial-gradient(1.5px 1.5px at 15% 40%, rgba(255,255,255,0.12) 60%, transparent 61%),
+            radial-gradient(1.5px 1.5px at 75% 30%, rgba(160,255,245,0.12) 60%, transparent 61%),
+            radial-gradient(1.5px 1.5px at 45% 75%, rgba(255,255,255,0.10) 60%, transparent 61%);
+          background-repeat: repeat;
+          background-size: 340px 340px, 400px 400px, 360px 360px;
+          animation: dotsDrift2 46s linear infinite;
+          transform: translateZ(0);
+          background-position:
+            calc((var(--mx, 0.5) - 0.5) * -6%) calc((var(--my, 0.5) - 0.5) * -6%),
+            calc((var(--mx, 0.5) - 0.5) * -8%) calc((var(--my, 0.5) - 0.5) * -8%),
+            calc((var(--mx, 0.5) - 0.5) * -10%) calc((var(--my, 0.5) - 0.5) * -10%);
+        }
+
+        /* --- Neural “filament web” (rotating, masked near center) --- */
+        .neura-web-wrap { z-index: 3; display: grid; place-items: center; }
+        .neura-web {
+          width: 160vmax;
+          height: 160vmax;
+          opacity: 0.28;
+          border-radius: 50%;
+          /* conic gradients create spokes/arcs; multiple layers add richness */
+          background:
+            conic-gradient(from 0deg,
+              rgba(160,255,245,0.10) 0deg, rgba(160,255,245,0.00) 25deg,
+              rgba(255,255,255,0.10) 40deg, rgba(255,255,255,0.00) 70deg,
+              rgba(160,255,245,0.08) 110deg, rgba(160,255,245,0.00) 150deg,
+              rgba(255,255,255,0.06) 190deg, rgba(255,255,255,0.00) 220deg,
+              rgba(160,255,245,0.08) 270deg, rgba(160,255,245,0.00) 310deg
+            ),
+            conic-gradient(from 180deg,
+              rgba(255,255,255,0.06) 0deg, rgba(255,255,255,0.00) 35deg,
+              rgba(160,255,245,0.10) 60deg, rgba(160,255,245,0.00) 95deg,
+              rgba(255,255,255,0.08) 140deg, rgba(255,255,255,0.00) 180deg,
+              rgba(160,255,245,0.10) 215deg, rgba(160,255,245,0.00) 250deg,
+              rgba(255,255,255,0.06) 300deg, rgba(255,255,255,0.00) 330deg
+            );
+          /* mask so filaments are strongest near the “brain/core” and fade out */
+          -webkit-mask: radial-gradient(circle at var(--cx, 50%) var(--cy, 45%),
+            rgba(0,0,0,0) 0%,
+            rgba(0,0,0,0.35) calc(16% + 4% * var(--pulse)),
+            rgba(0,0,0,0.6) calc(34% + 6% * var(--pulse)),
+            rgba(0,0,0,0.85) 55%,
+            rgba(0,0,0,1) 72%);
+          mask: radial-gradient(circle at var(--cx, 50%) var(--cy, 45%),
+            rgba(0,0,0,0) 0%,
+            rgba(0,0,0,0.35) calc(16% + 4% * var(--pulse)),
+            rgba(0,0,0,0.6) calc(34% + 6% * var(--pulse)),
+            rgba(0,0,0,0.85) 55%,
+            rgba(0,0,0,1) 72%);
+          animation: webRotate 64s linear infinite;
+          transform-origin: center center;
+        }
+
+        /* Vignette for focus */
         .neura-vignette {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-          z-index: 0;
-          background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%);
+          z-index: 4;
+          background: radial-gradient(ellipse at 50% 45%,
+            rgba(0,0,0,0) 0%,
+            rgba(0,0,0,0) 55%,
+            rgba(0,0,0,0.45) 100%);
         }
 
         /* Respect reduced motion */
         @media (prefers-reduced-motion: reduce) {
-          .neura-bg { animation: none; }
+          .neura-bg,
+          .neura-dots-1,
+          .neura-dots-2,
+          .neura-web {
+            animation: none;
+          }
         }
       `}</style>
 
       {/* Hero */}
-      <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* Lively “neura” background (pure CSS) */}
-        <div className="neura-bg" />
-        <div className="neura-vignette" />
+      <section
+        ref={heroRef}
+        className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]"
+      >
+        {/* Neural, futuristic background (stacked pure-CSS layers) */}
+        <div className="absfill neura-bg" />
+        <div className="absfill neura-dots-1" />
+        <div className="absfill neura-dots-2" />
+        <div className="absfill neura-web-wrap">
+          <div className="neura-web" />
+        </div>
+        <div className="absfill neura-vignette" />
 
         {/* Foreground content */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
