@@ -12,16 +12,16 @@ export default function Landing() {
     document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Tiny parallax: move background focus a little with the pointer
+  // pointer → CSS vars for light parallax/focus
   useEffect(() => {
     const el = heroRef.current;
     if (!el) return;
     const onMove = (e: PointerEvent) => {
-      const rect = el.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) / Math.max(1, rect.width);  // 0..1
-      const my = (e.clientY - rect.top) / Math.max(1, rect.height); // 0..1
-      el.style.setProperty("--mx", mx.toString());
-      el.style.setProperty("--my", my.toString());
+      const r = el.getBoundingClientRect();
+      const mx = (e.clientX - r.left) / Math.max(1, r.width);
+      const my = (e.clientY - r.top) / Math.max(1, r.height);
+      el.style.setProperty("--mx", mx.toFixed(4));
+      el.style.setProperty("--my", my.toFixed(4));
     };
     const onLeave = () => {
       el.style.setProperty("--mx", "0.5");
@@ -29,7 +29,6 @@ export default function Landing() {
     };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerleave", onLeave);
-    // defaults
     onLeave();
     return () => {
       el.removeEventListener("pointermove", onMove);
@@ -39,185 +38,241 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
-      {/* Inline CSS (pure CSS neural vibe — no canvas/webgl) */}
+      {/* ------- INLINE COSMIC/NEURAL BACKGROUND CSS (pure CSS) ------- */}
       <style>{`
-        /* Animate-able number for pulsing */
+        /* Animatable numbers */
         @property --pulse { syntax: "<number>"; inherits: false; initial-value: 0; }
+        @property --shiftX { syntax: "<percentage>"; inherits: false; initial-value: 50%; }
+        @property --shiftY { syntax: "<percentage>"; inherits: false; initial-value: 50%; }
 
         /* Keyframes */
-        @keyframes neuraPulse {
-          0%, 100% { --pulse: 0; opacity: 0.95; }
-          50%      { --pulse: 1; opacity: 1; }
+        @keyframes pulse {
+          0%, 100% { --pulse: 0; }
+          50%      { --pulse: 1; }
         }
-        @keyframes neuraDrift {
+        @keyframes driftSlow {
           0%   { transform: translate3d(0,0,0) scale(1.0) rotate(0deg); }
-          50%  { transform: translate3d(0,-0.8%,0) scale(1.01) rotate(0.5deg); }
+          50%  { transform: translate3d(0,-0.6%,0) scale(1.01) rotate(0.4deg); }
           100% { transform: translate3d(0,0,0) scale(1.0) rotate(0deg); }
         }
-        @keyframes dotsDrift1 {
+        @keyframes starflowA {
           0%   { background-position: 0% 0%; }
-          100% { background-position: 100% 60%; }
+          100% { background-position: 200% 120%; }
         }
-        @keyframes dotsDrift2 {
+        @keyframes starflowB {
           0%   { background-position: 0% 0%; }
-          100% { background-position: -120% -80%; }
+          100% { background-position: -180% -140%; }
         }
-        @keyframes webRotate {
-          0%   { transform: translateZ(0) rotate(0deg);   }
-          100% { transform: translateZ(0) rotate(360deg); }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.5; }
+          50%      { opacity: 1; }
+        }
+        @keyframes shoot {
+          0% { transform: translate3d(0,0,0) rotate(15deg); opacity: 0; }
+          10%{ opacity: 1; }
+          100% { transform: translate3d(120vw, -60vh, 0) rotate(15deg); opacity: 0; }
+        }
+        @keyframes orbitSpin {
+          0%   { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
 
-        /* Layer helpers */
+        /* Helpers */
         .absfill { position: absolute; inset: 0; pointer-events: none; }
-        .neura-bg, .neura-aura, .neura-dots-1, .neura-dots-2, .neura-web, .neura-vignette {
-          will-change: transform, opacity, background-position, background-size, filter;
+        .gpu { will-change: transform, opacity, background-position, filter; }
+
+        /* -- Center follows pointer subtly -- */
+        .cosmos {
+          --mx: 0.5;
+          --my: 0.5;
+          --cx: calc(50% + (var(--mx) - 0.5) * 6%);
+          --cy: calc(47% + (var(--my) - 0.5) * 4%);
         }
 
-        /* --- Base pulsing core + soft rings (white + teal) --- */
-        .neura-bg {
+        /* 1) Deep space gradient base with pulsing core + teal aura */
+        .layer-core {
           z-index: 0;
-          /* focus follows pointer lightly (center shifts 4–6%) */
-          --cx: calc(50% + (var(--mx, 0.5) - 0.5) * 6%);
-          --cy: calc(48% + (var(--my, 0.5) - 0.5) * 4%);
           background-image:
             radial-gradient(
               circle at var(--cx) var(--cy),
               rgba(255,255,255,0.10) 0%,
-              rgba(255,255,255,0.06) calc(12% + 5% * var(--pulse)),
-              rgba(255,255,255,0.02) calc(30% + 6% * var(--pulse)),
-              rgba(0,0,0,0) 70%
+              rgba(255,255,255,0.06) calc(12% + 4% * var(--pulse)),
+              rgba(255,255,255,0.02) calc(30% + 5% * var(--pulse)),
+              rgba(0,0,0,0) 65%
             ),
             radial-gradient(
               circle at var(--cx) var(--cy),
               rgba(160,255,245,0.18) 0%,
               rgba(160,255,245,0.10) calc(20% + 6% * var(--pulse)),
-              rgba(160,255,245,0.04) calc(36% + 8% * var(--pulse)),
-              rgba(0,0,0,0) 76%
-            ),
-            radial-gradient(
-              circle at calc(var(--cx) + 2%) calc(var(--cy) + 6%),
-              rgba(255,255,255,0.06) 0%,
-              rgba(255,255,255,0.03) 28%,
+              rgba(160,255,245,0.045) calc(36% + 7% * var(--pulse)),
               rgba(0,0,0,0) 75%
-            );
-          background-repeat: no-repeat, no-repeat, no-repeat;
+            ),
+            radial-gradient(circle at 50% 60%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 70%);
+          background-repeat: no-repeat;
           background-size: 140% 140%, 160% 160%, 200% 200%;
-          animation: neuraPulse 6.2s ease-in-out infinite, neuraDrift 28s ease-in-out infinite;
+          animation: pulse 6.2s ease-in-out infinite, driftSlow 28s ease-in-out infinite;
           filter: saturate(1.05) contrast(1.02);
         }
 
-        /* --- Constellation dots (two parallax layers) --- */
-        /* Layer 1: fine dense speckles drifting diagonally */
-        .neura-dots-1 {
+        /* 2) Parallax starfields (atoms) */
+        .layer-starsA {
           z-index: 1;
+          opacity: 0.65;
+          background-image:
+            radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.08) 60%, transparent 61%),
+            radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.06) 60%, transparent 61%),
+            radial-gradient(1px 1px at 40% 60%, rgba(160,255,245,0.08) 60%, transparent 61%),
+            radial-gradient(1px 1px at 85% 35%, rgba(255,255,255,0.06) 60%, transparent 61%);
+          background-size: 220px 220px, 260px 260px, 300px 300px, 280px 280px;
+          background-repeat: repeat;
+          animation: starflowA 60s linear infinite;
+          /* parallax offset from pointer */
+          background-position:
+            calc((var(--mx) - 0.5) * 8%) calc((var(--my) - 0.5) * 8%),
+            calc((var(--mx) - 0.5) * 10%) calc((var(--my) - 0.5) * 10%),
+            calc((var(--mx) - 0.5) * 12%) calc((var(--my) - 0.5) * 12%),
+            calc((var(--mx) - 0.5) * 14%) calc((var(--my) - 0.5) * 14%);
+        }
+        .layer-starsB {
+          z-index: 2;
           opacity: 0.55;
           background-image:
-            radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.08) 60%, transparent 61%),
-            radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.06) 60%, transparent 61%),
-            radial-gradient(1px 1px at 85% 25%, rgba(160,255,245,0.08) 60%, transparent 61%),
-            radial-gradient(1px 1px at 35% 85%, rgba(255,255,255,0.05) 60%, transparent 61%);
+            radial-gradient(1.5px 1.5px at 35% 25%, rgba(255,255,255,0.12) 60%, transparent 61%),
+            radial-gradient(1.5px 1.5px at 80% 70%, rgba(160,255,245,0.12) 60%, transparent 61%),
+            radial-gradient(1.5px 1.5px at 55% 85%, rgba(255,255,255,0.10) 60%, transparent 61%);
+          background-size: 360px 360px, 420px 420px, 380px 380px;
           background-repeat: repeat;
-          background-size: 240px 240px, 260px 260px, 320px 320px, 300px 300px;
-          animation: dotsDrift1 38s linear infinite;
-          transform: translateZ(0);
-          /* slight parallax */
+          animation: starflowB 70s linear infinite;
           background-position:
-            calc((var(--mx, 0.5) - 0.5) * 6%) calc((var(--my, 0.5) - 0.5) * 6%),
-            calc((var(--mx, 0.5) - 0.5) * 8%) calc((var(--my, 0.5) - 0.5) * 8%),
-            calc((var(--mx, 0.5) - 0.5) * 10%) calc((var(--my, 0.5) - 0.5) * 10%),
-            calc((var(--mx, 0.5) - 0.5) * 12%) calc((var(--my, 0.5) - 0.5) * 12%);
-        }
-        /* Layer 2: bigger, sparser atoms drifting opposite direction */
-        .neura-dots-2 {
-          z-index: 2;
-          opacity: 0.45;
-          background-image:
-            radial-gradient(1.5px 1.5px at 15% 40%, rgba(255,255,255,0.12) 60%, transparent 61%),
-            radial-gradient(1.5px 1.5px at 75% 30%, rgba(160,255,245,0.12) 60%, transparent 61%),
-            radial-gradient(1.5px 1.5px at 45% 75%, rgba(255,255,255,0.10) 60%, transparent 61%);
-          background-repeat: repeat;
-          background-size: 340px 340px, 400px 400px, 360px 360px;
-          animation: dotsDrift2 46s linear infinite;
-          transform: translateZ(0);
-          background-position:
-            calc((var(--mx, 0.5) - 0.5) * -6%) calc((var(--my, 0.5) - 0.5) * -6%),
-            calc((var(--mx, 0.5) - 0.5) * -8%) calc((var(--my, 0.5) - 0.5) * -8%),
-            calc((var(--mx, 0.5) - 0.5) * -10%) calc((var(--my, 0.5) - 0.5) * -10%);
+            calc((var(--mx) - 0.5) * -6%) calc((var(--my) - 0.5) * -6%),
+            calc((var(--mx) - 0.5) * -8%) calc((var(--my) - 0.5) * -8%),
+            calc((var(--mx) - 0.5) * -10%) calc((var(--my) - 0.5) * -10%);
         }
 
-        /* --- Neural “filament web” (rotating, masked near center) --- */
-        .neura-web-wrap { z-index: 3; display: grid; place-items: center; }
-        .neura-web {
-          width: 160vmax;
-          height: 160vmax;
-          opacity: 0.28;
+        /* 3) Shooting stars (a few lightweight spans) */
+        .layer-shooters { z-index: 3; overflow: visible; }
+        .shoot {
+          position: absolute;
+          left: -20vw;
+          top: 80vh;
+          width: 120px;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(255,255,255,0.0), rgba(255,255,255,0.9), rgba(160,255,245,0.0));
+          filter: drop-shadow(0 0 6px rgba(160,255,245,0.4));
+          animation: shoot 2.8s ease-in-out infinite;
+          opacity: 0;
+        }
+        /* staggered variants */
+        .shoot:nth-child(1){ animation-delay: 0.3s; top: 72vh; }
+        .shoot:nth-child(2){ animation-delay: 1.6s; top: 64vh; }
+        .shoot:nth-child(3){ animation-delay: 3.2s; top: 78vh; }
+        .shoot:nth-child(4){ animation-delay: 4.9s; top: 69vh; }
+        .shoot:nth-child(5){ animation-delay: 6.6s; top: 82vh; }
+
+        /* 4) Orbiting nodes (feel like neurons firing around a core) */
+        .layer-orbits { z-index: 4; display: grid; place-items: center; }
+        .orbits {
+          position: relative;
+          width: 120vmin;
+          height: 120vmin;
+          opacity: 0.35;
+          transform: translateZ(0);
+          /* pull toward pointer slightly */
+          translate: calc((var(--mx) - 0.5) * 1.2%) calc((var(--my) - 0.5) * 0.8%);
+        }
+        .orbit {
+          position: absolute;
+          inset: 0;
           border-radius: 50%;
-          /* conic gradients create spokes/arcs; multiple layers add richness */
-          background:
-            conic-gradient(from 0deg,
-              rgba(160,255,245,0.10) 0deg, rgba(160,255,245,0.00) 25deg,
-              rgba(255,255,255,0.10) 40deg, rgba(255,255,255,0.00) 70deg,
-              rgba(160,255,245,0.08) 110deg, rgba(160,255,245,0.00) 150deg,
-              rgba(255,255,255,0.06) 190deg, rgba(255,255,255,0.00) 220deg,
-              rgba(160,255,245,0.08) 270deg, rgba(160,255,245,0.00) 310deg
-            ),
-            conic-gradient(from 180deg,
-              rgba(255,255,255,0.06) 0deg, rgba(255,255,255,0.00) 35deg,
-              rgba(160,255,245,0.10) 60deg, rgba(160,255,245,0.00) 95deg,
-              rgba(255,255,255,0.08) 140deg, rgba(255,255,255,0.00) 180deg,
-              rgba(160,255,245,0.10) 215deg, rgba(160,255,245,0.00) 250deg,
-              rgba(255,255,255,0.06) 300deg, rgba(255,255,255,0.00) 330deg
-            );
-          /* mask so filaments are strongest near the “brain/core” and fade out */
-          -webkit-mask: radial-gradient(circle at var(--cx, 50%) var(--cy, 45%),
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.35) calc(16% + 4% * var(--pulse)),
-            rgba(0,0,0,0.6) calc(34% + 6% * var(--pulse)),
-            rgba(0,0,0,0.85) 55%,
-            rgba(0,0,0,1) 72%);
-          mask: radial-gradient(circle at var(--cx, 50%) var(--cy, 45%),
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.35) calc(16% + 4% * var(--pulse)),
-            rgba(0,0,0,0.6) calc(34% + 6% * var(--pulse)),
-            rgba(0,0,0,0.85) 55%,
-            rgba(0,0,0,1) 72%);
-          animation: webRotate 64s linear infinite;
-          transform-origin: center center;
+          border: 1px dashed rgba(255,255,255,0.12);
+          mask: radial-gradient(circle at var(--cx) var(--cy), rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.8) 65%, rgba(0,0,0,1) 85%);
+          animation: orbitSpin linear infinite;
+        }
+        .orbit:nth-child(1){ animation-duration: 44s; scale: 0.46; }
+        .orbit:nth-child(2){ animation-duration: 66s; scale: 0.62; }
+        .orbit:nth-child(3){ animation-duration: 88s; scale: 0.78; }
+        .orbit:nth-child(4){ animation-duration: 110s; scale: 0.92; }
+
+        /* orbiting nodes */
+        .orbit::after {
+          content: "";
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 8px;
+          height: 8px;
+          margin: -4px 0 0 -4px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0.2));
+          box-shadow:
+            0 0 8px rgba(255,255,255,0.5),
+            0 0 18px rgba(160,255,245,0.25);
+          transform: translateX(calc(50vmin));
+        }
+        /* distribute nodes on different angles with ::before too */
+        .orbit::before {
+          content: "";
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 6px;
+          height: 6px;
+          margin: -3px 0 0 -3px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(160,255,245,0.95), rgba(160,255,245,0.15));
+          box-shadow:
+            0 0 6px rgba(160,255,245,0.5),
+            0 0 14px rgba(160,255,245,0.25);
+          transform: rotate(120deg) translateX(calc(36vmin));
+          filter: saturate(1.1);
         }
 
-        /* Vignette for focus */
-        .neura-vignette {
-          z-index: 4;
-          background: radial-gradient(ellipse at 50% 45%,
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0) 55%,
-            rgba(0,0,0,0.45) 100%);
+        /* 5) Soft vignette for focus */
+        .layer-vignette {
+          z-index: 5;
+          background: radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%);
         }
 
-        /* Respect reduced motion */
+        /* Reduced motion */
         @media (prefers-reduced-motion: reduce) {
-          .neura-bg,
-          .neura-dots-1,
-          .neura-dots-2,
-          .neura-web {
+          .layer-core,
+          .layer-starsA,
+          .layer-starsB,
+          .layer-orbits .orbit {
             animation: none;
           }
+          .layer-shooters { display: none; }
         }
       `}</style>
 
-      {/* Hero */}
+      {/* ---------------------- HERO ---------------------- */}
       <section
         ref={heroRef}
-        className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]"
+        className="cosmos relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]"
       >
-        {/* Neural, futuristic background (stacked pure-CSS layers) */}
-        <div className="absfill neura-bg" />
-        <div className="absfill neura-dots-1" />
-        <div className="absfill neura-dots-2" />
-        <div className="absfill neura-web-wrap">
-          <div className="neura-web" />
+        {/* Cosmic/Neural Background Layers */}
+        <div className="absfill gpu layer-core" />
+        <div className="absfill gpu layer-starsA" />
+        <div className="absfill gpu layer-starsB" />
+
+        <div className="absfill gpu layer-shooters">
+          <span className="shoot" />
+          <span className="shoot" />
+          <span className="shoot" />
+          <span className="shoot" />
+          <span className="shoot" />
         </div>
-        <div className="absfill neura-vignette" />
+
+        <div className="absfill layer-orbits">
+          <div className="orbits">
+            <div className="orbit" />
+            <div className="orbit" />
+            <div className="orbit" />
+            <div className="orbit" />
+          </div>
+        </div>
+
+        <div className="absfill layer-vignette" />
 
         {/* Foreground content */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
@@ -252,7 +307,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How it helps */}
+      {/* ---------------------- BODY ---------------------- */}
       <section className="py-24 bg-[#0A0A0A]">
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto">
@@ -292,7 +347,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Social proof / teaser */}
       <section className="py-16 bg-[#0A0A0A]">
         <div className="container mx-auto px-6 text-center">
           <div className="flex items-center justify-center space-x-2 text-neutral-400">
@@ -304,7 +358,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Waitlist */}
       <section id="waitlist" className="py-24 bg-[#0A0A0A]">
         <div className="container mx-auto px-6">
           <div className="max-w-2xl mx-auto text-center mb-12">
@@ -320,7 +373,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="py-12 bg-[#0A0A0A] border-t border-white/10">
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -340,7 +392,6 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* Video modal */}
       <VideoModal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} />
     </div>
   );
