@@ -1,11 +1,10 @@
 import React, { useEffect, useRef } from "react";
 
 /**
- * NeuraPulseField
- * - full-bleed canvas background
- * - soft pulsating wave rings + subtle particle network
- * - reacts a bit to mouse movement
- * - zero external deps
+ * NeuraPulseField (robust)
+ * - full-bleed animated canvas background
+ * - wave rings + particle network
+ * - sizes off the PARENT element (fixes "works 1s then black")
  */
 type Props = {
   className?: string;
@@ -20,23 +19,33 @@ const NeuraPulseField: React.FC<Props> = ({
   intensity = 1.0,
   density = 1.0,
 }) => {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  const raf = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rafRef = useRef<number | null>(null);
   const mouse = useRef({ x: 0.5, y: 0.5, vx: 0, vy: 0, easing: 0.06 });
 
   useEffect(() => {
-    const canvas = ref.current!;
+    const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d", { alpha: true })!;
-    let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let w = 1, h = 1, dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    const onResize = () => {
-      w = canvas.clientWidth;
-      h = canvas.clientHeight;
+    // --- MEASURE THE PARENT, NOT THE CANVAS (this fixes the disappearing bug)
+    const measure = () => {
+      const host = canvas.parentElement as HTMLElement | null;
+      const rect = (host || canvas).getBoundingClientRect();
+      w = Math.max(1, Math.floor(rect.width));
+      h = Math.max(1, Math.floor(rect.height));
       canvas.width = Math.max(1, Math.floor(w * dpr));
       canvas.height = Math.max(1, Math.floor(h * dpr));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
+    // Handle window resize + any layout changes
+    const ro = new ResizeObserver(measure);
+    ro.observe(canvas.parentElement || canvas);
+    window.addEventListener("resize", measure, { passive: true });
+    measure();
+
+    // Pointer
     const handleMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       const tx = (e.clientX - rect.left) / Math.max(1, rect.width);
@@ -44,9 +53,10 @@ const NeuraPulseField: React.FC<Props> = ({
       mouse.current.vx += (tx - mouse.current.x);
       mouse.current.vy += (ty - mouse.current.y);
     };
+    canvas.addEventListener("pointermove", handleMove);
 
-    // particles
-    const COUNT = Math.floor(80 * density);
+    // Particles
+    const COUNT = Math.floor(90 * density);
     const pts = Array.from({ length: COUNT }).map(() => ({
       x: Math.random(), y: Math.random(),
       vx: (Math.random() - 0.5) * 0.0015,
@@ -55,35 +65,28 @@ const NeuraPulseField: React.FC<Props> = ({
       r: 1 + Math.random() * 1.5,
     }));
 
-    // noise helper
-    const rand = (seed: number) => {
-      // tiny LCG
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-
-    // draw loop
     let t0 = performance.now();
     const draw = (t: number) => {
       const dt = (t - t0) / 1000;
       t0 = t;
 
-      // ease mouse (smooth follow)
+      // ease mouse
       mouse.current.x += mouse.current.vx * mouse.current.easing;
       mouse.current.y += mouse.current.vy * mouse.current.easing;
       mouse.current.vx *= (1 - mouse.current.easing);
       mouse.current.vy *= (1 - mouse.current.easing);
 
-      // clear with very dark backdrop
+      // clear bg
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = "rgba(0,0,0,1)";
       ctx.fillRect(0, 0, w, h);
 
-      // ---- Pulsating wave rings (subtle) ----
+      // center with slight parallax to cursor
       const cx = w * 0.5 + (mouse.current.x - 0.5) * w * 0.06;
       const cy = h * 0.5 + (mouse.current.y - 0.5) * h * 0.04;
       const maxR = Math.sqrt(w * w + h * h) * 0.6;
 
+      // rings
       for (let i = 0; i < 6; i++) {
         const p = i / 6;
         const base = p * maxR;
@@ -103,17 +106,23 @@ const NeuraPulseField: React.FC<Props> = ({
         ctx.fill();
       }
 
-      // faint tint glow halo
+      // tint halo
       {
         const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.8);
-        halo.addColorStop(0, `${tint.replace("0.9", `${0.25 * intensity}`)}`);
+        const tintAlpha = 0.25 * intensity; // keep subtle
+        const tintStr = tint.replace(/rgba?\(([^)]+)\)/, (m, inner) => {
+          // normalize to rgba
+          const parts = inner.split(",").map(s => s.trim());
+          const [r, g, b] = parts;
+          return `rgba(${r}, ${g}, ${b}, ${tintAlpha})`;
+        });
+        halo.addColorStop(0, tintStr);
         halo.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = halo;
         ctx.fillRect(0, 0, w, h);
       }
 
-      // ---- Particle network ----
-      // update
+      // update particles
       for (let i = 0; i < COUNT; i++) {
         const p = pts[i];
         p.x += p.vx + (mouse.current.x - 0.5) * 0.0002;
@@ -133,11 +142,11 @@ const NeuraPulseField: React.FC<Props> = ({
           const dx = (a.x - b.x) * w;
           const dy = (a.y - b.y) * h;
           const d2 = dx * dx + dy * dy;
-          if (d2 < (w * 0.12) * (h * 0.12) * 0.0004) {
+          if (d2 < (Math.min(w, h) * 0.18) ** 2) {
             const d = Math.sqrt(d2);
             const k = (1 - d / (Math.min(w, h) * 0.18)) * 0.9 * intensity;
             if (k > 0) {
-              ctx.strokeStyle = `rgba(255,255,255,${0.08 * k})`;
+              ctx.strokeStyle = `rgba(255,255,255,${0.07 * k})`;
               ctx.lineWidth = 1;
               ctx.beginPath();
               ctx.moveTo(a.x * w, a.y * h);
@@ -151,53 +160,40 @@ const NeuraPulseField: React.FC<Props> = ({
       // draw particles
       for (let i = 0; i < COUNT; i++) {
         const p = pts[i];
-        const pulse = 0.6 + Math.sin(p.phase) * 0.4; // 0..1
+        const pulse = 0.6 + Math.sin(p.phase) * 0.4;
         const r = (p.r + pulse * 0.6) * intensity;
 
-        // soft mono dot with slight tint
         ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${0.75})`;
+        ctx.fillStyle = `rgba(255,255,255,0.75)`;
         ctx.arc(p.x * w, p.y * h, r, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.beginPath();
-        ctx.fillStyle = tint;
         ctx.globalAlpha = 0.12 * intensity;
+        ctx.fillStyle = tint;
         ctx.arc(p.x * w, p.y * h, r * 1.8, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
 
-      // very faint film grain
-      const grains = 18;
-      for (let i = 0; i < grains; i++) {
-        const gx = rand(t + i) * w;
-        const gy = rand(t * (i + 1)) * h;
-        ctx.fillStyle = "rgba(255,255,255,0.03)";
-        ctx.fillRect(gx, gy, 1, 1);
-      }
-
-      raf.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(draw);
     };
 
-    const ro = new ResizeObserver(onResize);
-    ro.observe(canvas);
-    onResize();
-
-    canvas.addEventListener("pointermove", handleMove);
-    raf.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(draw);
 
     return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       ro.disconnect();
+      window.removeEventListener("resize", measure);
       canvas.removeEventListener("pointermove", handleMove);
     };
   }, [tint, intensity, density]);
 
   return (
     <canvas
-      ref={ref}
+      ref={canvasRef}
       className={`absolute inset-0 w-full h-full ${className}`}
+      style={{ display: "block" }}
       aria-hidden="true"
     />
   );
