@@ -270,8 +270,8 @@ export default function Landing() {
 
         .neura-hero {
           --mx:.5; --my:.5;
-          --cx: calc(50% + (var(--mx) - .5) * 4%);
-          --cy: calc(48% + (var(--my) - .5) * 3%);
+          --cx: calc(50% + (var(--mx) - .5) * 8%);
+          --cy: calc(48% + (var(--my) - .5) * 6%);
           overflow:hidden;
           background: #0A0A0A;
         }
