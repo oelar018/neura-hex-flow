@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import NeuraPulseField from "@/components/NeuraPulseField";
+import HexDotsMonochrome from "@/components/HexDotsMonochrome";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -16,15 +16,19 @@ export default function Landing() {
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* Futuristic, lively background */}
-        <NeuraPulseField
-          className="z-0"
-          tint="rgba(160,255,245,0.9)"  // tweak to taste (e.g., rgba(255,255,255,0.9) for pure mono)
-          intensity={1.0}
-          density={1.0}
-        />
+        {/* BACKGROUND */}
+        <div className="absolute inset-0">
+          <HexDotsMonochrome
+            className="z-0"
+            rings={12}
+            dotSize={8}        // start big so it's clearly visible
+            idleSpeed={0.08}
+            pulseSpeed={0.85}
+            pulseDepth={0.12}
+          />
+        </div>
 
-        {/* Foreground content */}
+        {/* FOREGROUND */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
           <p className="text-neutral-200 font-semibold">Neura AI</p>
 
