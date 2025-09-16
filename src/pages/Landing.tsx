@@ -1,8 +1,268 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, Play, CheckCircle, Users, Zap, Shield } from "lucide-react";
+
+/** =========================
+ *  Canvas background: stars + neural links
+ *  ========================= */
+type Particle = {
+  x: number;
+  y: number;
+  z: number;        // depth layer (0..1)
+  vx: number;
+  vy: number;
+  size: number;
+  baseTwinkle: number;
+};
+
+function NeuraBackground({
+  followRef,
+}: {
+  followRef: React.RefObject<HTMLElement | null>;
+}) {
+  const starsRef = useRef<HTMLCanvasElement | null>(null);
+  const linksRef = useRef<HTMLCanvasElement | null>(null);
+
+  // pointer-follow (center bias)
+  const pointer = useRef({ mx: 0.5, my: 0.5 });
+
+  // particles and control refs
+  const particlesRef = useRef<Particle[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const lastTRef = useRef<number>(0);
+  const pausedRef = useRef<boolean>(false);
+  const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+
+  // settings tuned for desktop + mobile
+  const settings = useMemo(
+    () => ({
+      starLayers: 3,
+      density: 0.16, // particles per vw*vh / 10000 (scaled below)
+      maxSpeed: 0.015, // px/ms (scaled by depth)
+      linkDistance: 130, // px (scaled by depth & DPR)
+      linkWidth: 0.9,
+      heartbeatMs: 1350, // BPM ~ 44
+      twinkleMs: 2200,
+    }),
+    []
+  );
+
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const onPointer = (e: PointerEvent) => {
+      if (!followRef.current) return;
+      const r = followRef.current.getBoundingClientRect();
+      const mx = (e.clientX - r.left) / Math.max(1, r.width);
+      const my = (e.clientY - r.top) / Math.max(1, r.height);
+      pointer.current.mx = Math.max(0, Math.min(1, mx));
+      pointer.current.my = Math.max(0, Math.min(1, my));
+    };
+    const onLeave = () => {
+      pointer.current.mx = 0.5;
+      pointer.current.my = 0.5;
+    };
+
+    const el = followRef.current;
+    el?.addEventListener("pointermove", onPointer);
+    el?.addEventListener("pointerleave", onLeave);
+
+    const handleVis = () => {
+      pausedRef.current = document.hidden;
+      if (!document.hidden) kick();
+    };
+    document.addEventListener("visibilitychange", handleVis);
+
+    function resize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      [starsRef.current, linksRef.current].forEach((c) => {
+        if (!c) return;
+        c.width = Math.floor(w * dpr);
+        c.height = Math.floor(h * dpr);
+        c.style.width = `${w}px`;
+        c.style.height = `${h}px`;
+      });
+
+      // regenerate particles to match area (keep feel constant)
+      const area = (w * h) / 10000; // coarse cells
+      const targetCount = Math.round(area * settings.density * 60); // ~60 looks rich
+      const ps: Particle[] = [];
+      for (let i = 0; i < targetCount; i++) {
+        const z = Math.random(); // depth 0..1
+        const s = 0.6 + z * 1.8; // dot size
+        const speed = (0.25 + z) * settings.maxSpeed; // deeper = faster
+        const dir = Math.random() * Math.PI * 2;
+        ps.push({
+          x: Math.random() * w * dpr,
+          y: Math.random() * h * dpr,
+          z,
+          vx: Math.cos(dir) * speed * dpr,
+          vy: Math.sin(dir) * speed * dpr,
+          size: s * dpr,
+          baseTwinkle: Math.random() * Math.PI * 2,
+        });
+      }
+      particlesRef.current = ps;
+    }
+
+    resize();
+    window.addEventListener("resize", resize);
+
+    // draw loop
+    const starsCtx = starsRef.current?.getContext("2d");
+    const linksCtx = linksRef.current?.getContext("2d");
+    if (!starsCtx || !linksCtx) return;
+
+    // soft vignette + aura gradient (under canvases via CSS)
+    // (handled in parent styles)
+
+    function frame(ts: number) {
+      if (pausedRef.current) return;
+
+      const dt = lastTRef.current ? ts - lastTRef.current : 16;
+      lastTRef.current = ts;
+
+      const width = starsRef.current!.width;
+      const height = starsRef.current!.height;
+      const ps = particlesRef.current;
+      const { mx, my } = pointer.current;
+
+      // Parallax offset (very subtle)
+      const parallaxX = (mx - 0.5) * 14 * dpr;
+      const parallaxY = (my - 0.5) * 10 * dpr;
+
+      // heartbeat 0..1..0 curve
+      const hbPhase = (ts % settings.heartbeatMs) / settings.heartbeatMs;
+      const heartbeat =
+        hbPhase < 0.4
+          ? Math.sin((hbPhase / 0.4) * Math.PI)
+          : hbPhase < 0.7
+          ? 0.35 * Math.sin(((hbPhase - 0.4) / 0.3) * Math.PI)
+          : 0.12 * Math.sin(((hbPhase - 0.7) / 0.3) * Math.PI);
+
+      // clear layers
+      starsCtx.clearRect(0, 0, width, height);
+      linksCtx.clearRect(0, 0, width, height);
+
+      // draw stars
+      starsCtx.save();
+      if (!reduceMotion) {
+        starsCtx.translate(parallaxX * 0.5, parallaxY * 0.5);
+      }
+      for (let i = 0; i < ps.length; i++) {
+        const p = ps[i];
+
+        // drift
+        if (!reduceMotion) {
+          p.x += p.vx * dt * (1 + 0.15 * heartbeat);
+          p.y += p.vy * dt * (1 + 0.15 * heartbeat);
+        }
+
+        // wrap
+        if (p.x < -10) p.x = width + 10;
+        if (p.x > width + 10) p.x = -10;
+        if (p.y < -10) p.y = height + 10;
+        if (p.y > height + 10) p.y = -10;
+
+        // twinkle + pulse
+        const tw =
+          0.55 +
+          0.45 *
+            Math.abs(
+              Math.sin((ts / settings.twinkleMs) * (1.2 + p.z * 0.6) + p.baseTwinkle)
+            ) +
+          0.25 * heartbeat;
+
+        // color: mix cool white + cyan tint by depth
+        const cyan = 190 + Math.floor(40 * p.z); // hue-ish
+        starsCtx.globalAlpha = 0.45 + 0.55 * tw;
+        starsCtx.beginPath();
+        starsCtx.arc(p.x, p.y, p.size * (1 + 0.25 * heartbeat), 0, Math.PI * 2);
+        // soft radial fill
+        const g = starsCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
+        g.addColorStop(0, `rgba(255,255,255,0.95)`);
+        g.addColorStop(0.5, `rgba(160,255,245,0.55)`);
+        g.addColorStop(1, `rgba(0,0,0,0)`);
+        starsCtx.fillStyle = g;
+        starsCtx.fill();
+      }
+      starsCtx.restore();
+
+      // draw neural links (distance-based)
+      linksCtx.save();
+      if (!reduceMotion) {
+        linksCtx.translate(parallaxX, parallaxY);
+      }
+      linksCtx.lineWidth = settings.linkWidth * dpr;
+      for (let i = 0; i < ps.length; i++) {
+        const a = ps[i];
+        for (let j = i + 1; j < ps.length; j++) {
+          const b = ps[j];
+          // scale link distance by depth (closer stars (higher z) connect farther)
+          const maxD =
+            (settings.linkDistance + 110 * (a.z + b.z)) * 0.5 * dpr;
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < maxD * maxD) {
+            const d = Math.sqrt(d2);
+            const t = 1 - d / maxD; // 0..1
+            const alpha = (0.08 + 0.22 * t) * (0.55 + 0.45 * heartbeat);
+            linksCtx.strokeStyle = `rgba(170,255,245,${alpha.toFixed(3)})`;
+            linksCtx.beginPath();
+            linksCtx.moveTo(a.x, a.y);
+            linksCtx.lineTo(b.x, b.y);
+            linksCtx.stroke();
+
+            // tiny node glow at stronger connections
+            if (t > 0.75) {
+              const nx = (a.x + b.x) / 2;
+              const ny = (a.y + b.y) / 2;
+              const ng = linksCtx.createRadialGradient(nx, ny, 0, nx, ny, 10 * dpr);
+              ng.addColorStop(0, `rgba(160,255,245,${0.35 + 0.35 * t})`);
+              ng.addColorStop(1, "rgba(0,0,0,0)");
+              linksCtx.fillStyle = ng;
+              linksCtx.beginPath();
+              linksCtx.arc(nx, ny, 10 * dpr, 0, Math.PI * 2);
+              linksCtx.fill();
+            }
+          }
+        }
+      }
+      linksCtx.restore();
+
+      // continue
+      rafRef.current = requestAnimationFrame(frame);
+    }
+
+    function kick() {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(frame);
+    }
+
+    kick();
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVis);
+      el?.removeEventListener("pointermove", onPointer);
+      el?.removeEventListener("pointerleave", onLeave);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [dpr, followRef, settings]);
+
+  return (
+    <>
+      {/* Aura + vignette sit in CSS below; these canvases render the motion */}
+      <canvas ref={starsRef} className="absfill block" />
+      <canvas ref={linksRef} className="absfill block" />
+    </>
+  );
+}
 
 export default function Landing() {
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -12,263 +272,92 @@ export default function Landing() {
     document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // gentle parallax focus
-  useEffect(() => {
-    const el = heroRef.current;
-    if (!el) return;
-    const onMove = (e: PointerEvent) => {
-      const r = el.getBoundingClientRect();
-      const mx = (e.clientX - r.left) / Math.max(1, r.width);
-      const my = (e.clientY - r.top) / Math.max(1, r.height);
-      el.style.setProperty("--mx", mx.toFixed(4));
-      el.style.setProperty("--my", my.toFixed(4));
-    };
-    const onLeave = () => {
-      el.style.setProperty("--mx", "0.5");
-      el.style.setProperty("--my", "0.5");
-    };
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerleave", onLeave);
-    onLeave();
-    return () => {
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerleave", onLeave);
-    };
-  }, []);
-
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
-      {/* =================== NEURAL SPACE BACKGROUND (pure CSS) =================== */}
+      {/* =================== GLOBAL STYLES FOR THE BACKDROP =================== */}
       <style>{`
-        /* Custom animatable props */
-        @property --pulse { syntax: "<number>"; inherits: false; initial-value: 0; }
         @property --mx { syntax: "<number>"; inherits: true; initial-value: 0.5; }
         @property --my { syntax: "<number>"; inherits: true; initial-value: 0.5; }
+        @property --pulse { syntax: "<number>"; inherits: false; initial-value: 0; }
 
-        /* Heartbeat pulse (slow) */
+        /* slow heartbeat to modulate aura brightness */
         @keyframes heartbeat {
-          0%, 100% { --pulse: 0; filter: brightness(1); }
+          0%,100% { --pulse: 0; filter: brightness(1); }
           40%      { --pulse: 1; filter: brightness(1.06); }
-          70%      { --pulse: 0.25; filter: brightness(1.02); }
+          70%      { --pulse: .25; filter: brightness(1.02); }
         }
 
-        /* Ultra-slow drift */
-        @keyframes driftUltraSlow {
-          0%   { transform: translate3d(0,0,0) scale(1.00) rotate(0deg); }
-          50%  { transform: translate3d(0,-0.4%,0) scale(1.01) rotate(0.25deg); }
-          100% { transform: translate3d(0,0,0) scale(1.00) rotate(0deg); }
-        }
+        .absfill { position:absolute; inset:0; pointer-events:none; }
 
-        /* Starfield drift (very slow) */
-        @keyframes starfieldA { 0% {background-position:0% 0%} 100% {background-position: 28% 18%} }
-        @keyframes starfieldB { 0% {background-position:0% 0%} 100% {background-position:-22% -20%} }
-        @keyframes starfieldC { 0% {background-position:0% 0%} 100% {background-position: 16% -14%} }
-
-        /* Twinkle */
-        @keyframes twinkleA { 0%,100%{opacity:.55} 50%{opacity:.95} }
-        @keyframes twinkleB { 0%,100%{opacity:.45} 50%{opacity:.85} }
-        @keyframes twinkleC { 0%,100%{opacity:.40} 50%{opacity:.80} }
-
-        /* Super-slow rotations */
-        @keyframes filamentsSpin { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
-        @keyframes gridRotate     { 0%{transform:rotate(0)} 100%{transform:rotate(-360deg)} }
-
-        .absfill { position: absolute; inset: 0; pointer-events: none; }
-        .gpu { will-change: transform, opacity, background-position, filter; }
-
-        /* Pointer-following center */
-        .neura-space {
-          --mx: .5; --my: .5;
+        .neura-hero {
+          --mx:.5; --my:.5;
           --cx: calc(50% + (var(--mx) - .5) * 4%);
           --cy: calc(48% + (var(--my) - .5) * 3%);
+          overflow:hidden;
+          background: #0A0A0A;
         }
 
-        /* 1) CORE halo + teal aura (brighter than before) */
-        .layer-core {
-          z-index: 0;
+        /* Soft halo + teal aura behind canvases */
+        .neura-aura {
+          z-index:0;
           background-image:
             radial-gradient(
               circle at var(--cx) var(--cy),
               rgba(255,255,255,0.14) 0%,
-              rgba(255,255,255,0.08) calc(14% + 4% * var(--pulse)),
-              rgba(255,255,255,0.03) calc(30% + 5% * var(--pulse)),
-              rgba(0,0,0,0) 60%
+              rgba(255,255,255,0.06) calc(24% + 6% * var(--pulse)),
+              rgba(255,255,255,0.02) calc(44% + 6% * var(--pulse)),
+              rgba(0,0,0,0) 70%
             ),
             radial-gradient(
               circle at var(--cx) var(--cy),
               rgba(160,255,245,0.22) 0%,
-              rgba(160,255,245,0.12) calc(22% + 5% * var(--pulse)),
-              rgba(160,255,245,0.06) calc(38% + 6% * var(--pulse)),
-              rgba(0,0,0,0) 76%
-            ),
-            radial-gradient(circle at 50% 60%, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0) 72%);
-          background-size: 140% 140%, 160% 160%, 200% 200%;
-          background-repeat: no-repeat;
-          animation: heartbeat 9s ease-in-out infinite, driftUltraSlow 120s ease-in-out infinite;
-          filter: saturate(1.06) contrast(1.03);
-        }
-
-        /* 2) DENSE STARFIELD (now much more visible) */
-        /* Smaller background-size => more dots (denser) */
-        .layer-starsA {
-          z-index: 1;
-          opacity: 0.9; /* up from ~0.55 */
-          background-image:
-            radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.12) 60%, transparent 61%),
-            radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.10) 60%, transparent 61%),
-            radial-gradient(1px 1px at 70% 25%, rgba(160,255,245,0.12) 60%, transparent 61%),
-            radial-gradient(1px 1px at 90% 55%, rgba(255,255,255,0.10) 60%, transparent 61%),
-            radial-gradient(1px 1px at 45% 85%, rgba(255,255,255,0.10) 60%, transparent 61%);
-          background-size: 160px 160px, 170px 170px, 180px 180px, 190px 190px, 160px 160px; /* denser */
-          background-repeat: repeat;
-          animation: starfieldA 180s linear infinite, twinkleA 6.8s ease-in-out infinite;
-          background-position:
-            calc((var(--mx) - .5) * 6%) calc((var(--my) - .5) * 6%),
-            calc((var(--mx) - .5) * 7%) calc((var(--my) - .5) * 7%),
-            calc((var(--mx) - .5) * 8%) calc((var(--my) - .5) * 8%),
-            calc((var(--mx) - .5) * 9%) calc((var(--my) - .5) * 9%),
-            calc((var(--mx) - .5) * 10%) calc((var(--my) - .5) * 10%);
-        }
-
-        .layer-starsB {
-          z-index: 2;
-          opacity: 0.75; /* up from ~0.48 */
-          background-image:
-            radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.16) 60%, transparent 61%),
-            radial-gradient(1.5px 1.5px at 75% 65%, rgba(160,255,245,0.16) 60%, transparent 61%),
-            radial-gradient(2px 2px at 50% 80%, rgba(255,255,255,0.14) 60%, transparent 61%),
-            radial-gradient(1.5px 1.5px at 28% 55%, rgba(255,255,255,0.14) 60%, transparent 61%);
-          background-size: 220px 220px, 260px 260px, 240px 240px, 260px 260px; /* denser */
-          background-repeat: repeat;
-          animation: starfieldB 200s linear infinite, twinkleB 9s ease-in-out infinite;
-          background-position:
-            calc((var(--mx) - .5) * -5%) calc((var(--my) - .5) * -5%),
-            calc((var(--mx) - .5) * -6%) calc((var(--my) - .5) * -6%),
-            calc((var(--mx) - .5) * -7%) calc((var(--my) - .5) * -7%),
-            calc((var(--mx) - .5) * -8%) calc((var(--my) - .5) * -8%);
-        }
-
-        /* Third star layer for depth */
-        .layer-starsC {
-          z-index: 3;
-          opacity: 0.55;
-          background-image:
-            radial-gradient(2px 2px at 15% 45%, rgba(255,255,255,0.18) 60%, transparent 61%),
-            radial-gradient(2px 2px at 65% 20%, rgba(160,255,245,0.18) 60%, transparent 61%);
-          background-size: 260px 260px, 300px 300px;
-          background-repeat: repeat;
-          animation: starfieldC 220s linear infinite, twinkleC 12s ease-in-out infinite;
-          background-position:
-            calc((var(--mx) - .5) * 4%) calc((var(--my) - .5) * 4%),
-            calc((var(--mx) - .5) * 5%) calc((var(--my) - .5) * 5%);
-        }
-
-        /* 3) NEURAL FILAMENTS (brighter & thicker) */
-        .layer-filaments-wrap { z-index: 4; display: grid; place-items: center; }
-        .filaments {
-          width: 200vmax;
-          height: 200vmax;
-          opacity: 0.42; /* up from ~0.24 */
-          border-radius: 50%;
-          background:
-            conic-gradient(from 0deg,
-              rgba(160,255,245,0.18) 0deg, rgba(160,255,245,0.00) 26deg,
-              rgba(255,255,255,0.16) 48deg, rgba(255,255,255,0.00) 86deg,
-              rgba(160,255,245,0.14) 128deg, rgba(160,255,245,0.00) 168deg,
-              rgba(255,255,255,0.12) 210deg, rgba(255,255,255,0.00) 244deg,
-              rgba(160,255,245,0.14) 300deg, rgba(160,255,245,0.00) 334deg
-            ),
-            conic-gradient(from 180deg,
-              rgba(255,255,255,0.12) 0deg, rgba(255,255,255,0.00) 36deg,
-              rgba(160,255,245,0.18) 78deg, rgba(160,255,245,0.00) 118deg,
-              rgba(255,255,255,0.14) 166deg, rgba(255,255,255,0.00) 200deg,
-              rgba(160,255,245,0.18) 248deg, rgba(160,255,245,0.00) 286deg,
-              rgba(255,255,255,0.12) 324deg, rgba(255,255,255,0.00) 356deg
+              rgba(160,255,245,0.12) calc(32% + 6% * var(--pulse)),
+              rgba(160,255,245,0.06) calc(58% + 6% * var(--pulse)),
+              rgba(0,0,0,0) 90%
             );
-          -webkit-mask: radial-gradient(circle at var(--cx) var(--cy),
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.30) calc(14% + 3% * var(--pulse)),
-            rgba(0,0,0,0.55) calc(32% + 4% * var(--pulse)),
-            rgba(0,0,0,0.88) 56%,
-            rgba(0,0,0,1) 76%);
-          mask: radial-gradient(circle at var(--cx) var(--cy),
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.30) calc(14% + 3% * var(--pulse)),
-            rgba(0,0,0,0.55) calc(32% + 4% * var(--pulse)),
-            rgba(0,0,0,0.88) 56%,
-            rgba(0,0,0,1) 76%);
-          animation: filamentsSpin 240s linear infinite; /* slower + continuous */
-          transform-origin: center center;
+          background-repeat:no-repeat;
+          background-size:170% 170%, 200% 200%;
+          animation: heartbeat 10s ease-in-out infinite;
+          filter: saturate(1.05) contrast(1.03);
         }
 
-        /* 4) SUBTLE NEURAL GRID (soft links) */
-        .layer-grid-wrap { z-index: 5; display: grid; place-items: center; }
-        .gridlinks {
-          width: 180vmax;
-          height: 180vmax;
-          opacity: 0.18; /* visibility up */
-          border-radius: 50%;
-          background:
-            repeating-linear-gradient(0deg,   rgba(255,255,255,0.08) 0 1px, transparent 1px 40px),
-            repeating-linear-gradient(90deg,  rgba(255,255,255,0.08) 0 1px, transparent 1px 40px),
-            repeating-linear-gradient(45deg,  rgba(160,255,245,0.08) 0 1px, transparent 1px 56px),
-            repeating-linear-gradient(135deg, rgba(160,255,245,0.06) 0 1px, transparent 1px 56px);
-          -webkit-mask: radial-gradient(circle at var(--cx) var(--cy),
+        /* Outer vignette to keep text readable */
+        .neura-vignette {
+          z-index:4;
+          background: radial-gradient(ellipse at 50% 50%,
             rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.25) 18%,
-            rgba(0,0,0,0.55) 40%,
-            rgba(0,0,0,0.90) 64%,
-            rgba(0,0,0,1) 76%);
-          mask: radial-gradient(circle at var(--cx) var(--cy),
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.25) 18%,
-            rgba(0,0,0,0.55) 40%,
-            rgba(0,0,0,0.90) 64%,
-            rgba(0,0,0,1) 76%);
-          animation: gridRotate 360s linear infinite; /* super slow */
-        }
-
-        /* 5) Vignette */
-        .layer-vignette {
-          z-index: 6;
-          background: radial-gradient(ellipse at 50% 48%,
-            rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0) 55%,
-            rgba(0,0,0,0.50) 100%);
+            rgba(0,0,0,0.0) 55%,
+            rgba(0,0,0,0.5) 100%);
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .layer-core,
-          .layer-starsA,
-          .layer-starsB,
-          .layer-starsC,
-          .filaments,
-          .gridlinks {
-            animation: none;
-          }
+          .neura-aura { animation: none; }
         }
       `}</style>
 
       {/* =================== HERO =================== */}
       <section
         ref={heroRef}
-        className="neura-space relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]"
+        className="relative neura-hero min-h-screen flex items-center"
+        onPointerMove={(e) => {
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          const mx = (e.clientX - r.left) / Math.max(1, r.width);
+          const my = (e.clientY - r.top) / Math.max(1, r.height);
+          (e.currentTarget as HTMLElement).style.setProperty("--mx", mx.toFixed(4));
+          (e.currentTarget as HTMLElement).style.setProperty("--my", my.toFixed(4));
+        }}
+        onPointerLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.setProperty("--mx", "0.5");
+          (e.currentTarget as HTMLElement).style.setProperty("--my", "0.5");
+        }}
       >
-        {/* Background layers (back → front) */}
-        <div className="absfill gpu layer-core" />
-        <div className="absfill gpu layer-starsA" />
-        <div className="absfill gpu layer-starsB" />
-        <div className="absfill gpu layer-starsC" />
-        <div className="absfill layer-filaments-wrap">
-          <div className="filaments" />
-        </div>
-        <div className="absfill layer-grid-wrap">
-          <div className="gridlinks" />
-        </div>
-        <div className="absfill layer-vignette" />
+        {/* Backdrop layers */}
+        <div className="absfill neura-aura" />
+        <NeuraBackground followRef={heroRef} />
+        <div className="absfill neura-vignette" />
 
         {/* Foreground content */}
-        <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
+        <div className="relative z-[5] w-full max-w-4xl mx-auto px-6 text-center">
           <p className="text-neutral-200 font-semibold">Neura AI</p>
 
           <h1 className="mt-4 text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white">
@@ -362,7 +451,7 @@ export default function Landing() {
             </p>
           </div>
 
-        <WaitlistForm />
+          <WaitlistForm />
         </div>
       </section>
 
