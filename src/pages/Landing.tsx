@@ -16,20 +16,19 @@ export default function Landing() {
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* Monochrome hex-dot sculpture background */}
-        <HexDotsMonochrome
-          className="z-0"
-          rings={12}        // try 12–14 desktop, 9–10 mobile
-          dotSize={5.0}
-          idleSpeed={0.10}  // slow, subtle rotation
-          pulseSpeed={0.85} // gentle breathing
-          pulseDepth={0.12} // subtle amplitude
-        />
+        {/* BACKGROUND */}
+        <div className="absolute inset-0">
+          <HexDotsMonochrome
+            className="z-0"
+            rings={12}
+            dotSize={8}        // start big so it's clearly visible
+            idleSpeed={0.08}
+            pulseSpeed={0.85}
+            pulseDepth={0.12}
+          />
+        </div>
 
-        {/* Optional: very soft vignette to match the cinematic feel */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,transparent_55%,rgba(0,0,0,0.38)_100%)]" />
-
-        {/* Foreground content */}
+        {/* FOREGROUND */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
           <p className="text-neutral-200 font-semibold">Neura AI</p>
 

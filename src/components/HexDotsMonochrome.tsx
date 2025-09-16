@@ -2,30 +2,28 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 type Props = {
-  rings?: number;        // how many concentric hex rings
-  dotSize?: number;      // base dot size in px-ish
-  idleSpeed?: number;    // slow rotation speed (radians/sec)
-  pulseSpeed?: number;   // breathing speed
-  pulseDepth?: number;   // 0..1 how much dots grow/brighten while pulsing
-  hoverBoost?: number;   // 0..1 how much nearby dots brighten on hover
   className?: string;
+  rings?: number;       // 10–14 looks good on desktop
+  dotSize?: number;     // base dot size
+  idleSpeed?: number;   // tiny rotation
+  pulseSpeed?: number;  // breathing speed
+  pulseDepth?: number;  // 0..1 breathing amount
 };
 
-// utilities
 function prefersReducedMotion() {
   if (typeof window === "undefined") return false;
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 }
 
-// build axial hex ring positions in XY
+// Build concentric hex rings (axial coords)
 function buildHexDotPositions(R: number, spacing: number) {
   const pts: number[] = [];
   const dirs = [
     [1, 0], [1, -1], [0, -1],
     [-1, 0], [-1, 1], [0, 1],
   ];
-  // slight hollow center for "sculpture" look
-  const hollow = Math.max(0, Math.round(R * 0.20));
+  const hollow = Math.max(0, Math.round(R * 0.18)); // tiny hole
+
   if (hollow === 0) pts.push(0, 0, 0);
 
   for (let k = 1; k <= R; k++) {
@@ -46,36 +44,36 @@ function buildHexDotPositions(R: number, spacing: number) {
 
 const vertexShader = /* glsl */ `
   uniform float uTime;
-  uniform float uIdle;        // tiny rotation
+  uniform float uIdle;
   uniform float uDotSize;
   uniform float uPulseSpeed;
   uniform float uPulseDepth;
-  uniform vec2  uMouse;       // world coords
-  attribute float aRing;      // 0..1 inner->outer
+  uniform vec2  uMouse;   // world space
+  attribute float aRing;  // 0..1 inner->outer
 
-  varying float vProx;        // 0..1 mouse proximity
-  varying float vRing;        // pass to fragment for subtle falloff
+  varying float vProx;
+  varying float vRing;
 
   void main() {
     vec3 p = position;
 
-    // very slow idle rotation
+    // very subtle idle rotation
     float c = cos(uIdle * uTime), s = sin(uIdle * uTime);
     mat2 rot = mat2(c, -s, s, c);
     p.xy = rot * p.xy;
 
-    // proximity to mouse (world)
+    // distance to mouse (already world space)
     float d = distance(p.xy, uMouse);
     float t = clamp(1.0 - d / (uDotSize * 22.0), 0.0, 1.0);
-    vProx = t * t * (3.0 - 2.0 * t); // smoothstep-ish
+    vProx = t * t * (3.0 - 2.0 * t);
 
-    // global breathing pulse
+    // breathing pulse (phase per ring)
     float pulse = 1.0;
     if (uPulseSpeed > 0.0) {
-      pulse += sin(uTime * uPulseSpeed + aRing * 4.0) * uPulseDepth; // phase by ring
+      pulse += sin(uTime * uPulseSpeed + aRing * 4.0) * uPulseDepth;
     }
 
-    // ring fade: inner dots a touch bigger/brighter
+    // inner rings slightly larger
     float ringBias = 0.90 + (1.0 - aRing) * 0.25;
 
     gl_PointSize = uDotSize * ringBias * pulse * (1.0 + vProx * 0.25);
@@ -86,50 +84,44 @@ const vertexShader = /* glsl */ `
 
 const fragmentShader = /* glsl */ `
   precision mediump float;
-  varying float vProx;   // mouse proximity 0..1
+  varying float vProx;   // 0..1
   varying float vRing;   // 0..1 inner->outer
 
-  // render soft circular dot, monochrome
   void main() {
+    // soft round dot
     vec2 uv = gl_PointCoord * 2.0 - 1.0;
     float r = length(uv);
     if (r > 1.0) discard;
 
-    // feathered edge mask
-    float edge = smoothstep(1.0, 0.85, r);
+    // feathered edge mask (crisp but soft)
+    float edge = smoothstep(1.0, 0.72, r);
 
-    // base luminance (inner rings slightly brighter)
-    float base = 0.60 + (1.0 - vRing) * 0.25;   // 0.60..0.85
+    // base luminance (inner rings a touch brighter)
+    float base = 0.70 + (1.0 - vRing) * 0.18;  // 0.70..0.88
 
-    // proximity highlight (subtle)
+    // cursor proximity boost (subtle)
     float highlight = vProx * 0.35;
 
-    // final intensity
     float L = clamp(base + highlight, 0.0, 1.0);
+    vec3 col = vec3(L);                       // grayscale white/gray
 
-    // convert to grayscale (white/gray)
-    vec3 col = vec3(L);
-
-    // soften alpha so dots feel airy
-    float alpha = edge * (0.45 + vProx * 0.25);
+    // slightly stronger alpha so it's clearly visible
+    float alpha = edge * (0.75 + vProx * 0.15);
     gl_FragColor = vec4(col, alpha);
   }
 `;
 
 const HexDotsMonochrome: React.FC<Props> = ({
-  rings = 12,
-  dotSize = 5.0,
-  idleSpeed = 0.12,     // subtle
-  pulseSpeed = 0.9,     // breathing speed
-  pulseDepth = 0.12,    // amplitude of breathing
-  hoverBoost = 1.0,     // kept for API symmetry (proximity already applied)
   className = "",
+  rings = 12,
+  dotSize = 8,        // a little bigger so you SEE it immediately
+  idleSpeed = 0.08,
+  pulseSpeed = 0.85,
+  pulseDepth = 0.12,
 }) => {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.OrthographicCamera | null>(null);
-  const meshRef = useRef<THREE.Points | null>(null);
   const uniformsRef = useRef<any>(null);
   const rafRef = useRef<number | null>(null);
   const pausedRef = useRef(false);
@@ -141,15 +133,12 @@ const HexDotsMonochrome: React.FC<Props> = ({
     // renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setClearColor(0x000000, 0);
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setPixelRatio(dpr);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     rendererRef.current = renderer;
     wrap.appendChild(renderer.domElement);
 
-    // scene & camera (orthographic)
+    // scene + camera
     const scene = new THREE.Scene();
-    sceneRef.current = scene;
-
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
     cameraRef.current = camera;
 
@@ -159,15 +148,15 @@ const HexDotsMonochrome: React.FC<Props> = ({
     const pos = buildHexDotPositions(rings, spacing);
     geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
 
-    // ring attribute 0..1 (inner→outer)
+    // ring attribute 0..1
     const ringAttr = new Float32Array(pos.length / 3);
     {
       let w = 0;
       const v = new THREE.Vector3();
       for (let i = 0; i < pos.length; i += 3) {
         v.set(pos[i], pos[i + 1], 0);
-        const r = Math.max(1, Math.round(v.length() / spacing / 1.5));
-        ringAttr[w++] = Math.min(1.0, r / rings);
+        const rr = Math.max(1, Math.round(v.length() / spacing / 1.5));
+        ringAttr[w++] = Math.min(1.0, rr / rings);
       }
     }
     geom.setAttribute("aRing", new THREE.BufferAttribute(ringAttr, 1));
@@ -188,15 +177,14 @@ const HexDotsMonochrome: React.FC<Props> = ({
       vertexShader,
       fragmentShader,
       transparent: true,
-      blending: THREE.AdditiveBlending, // makes highlights feel "glowy" while staying mono
+      blending: THREE.NormalBlending, // clearer; switch to Additive if you want extra glow
       depthTest: false,
     });
 
     const points = new THREE.Points(geom, material);
-    meshRef.current = points;
     scene.add(points);
 
-    // size/fit
+    // size & fit
     const onResize = () => {
       const w = wrap.clientWidth || 1;
       const h = wrap.clientHeight || 1;
@@ -210,16 +198,16 @@ const HexDotsMonochrome: React.FC<Props> = ({
       camera.bottom = -viewSize;
       camera.updateProjectionMatrix();
 
-      // scale lattice to ~70% of min dimension
+      // scale sculpture to ~70% of min dimension
       const minDim = Math.min(w, h);
-      const target = (minDim * 0.72) / (rings * 1.5); // tune this for density
+      const target = (minDim * 0.72) / (rings * 1.5);
       points.scale.set(target, target, 1);
     };
     const ro = new ResizeObserver(onResize);
     ro.observe(wrap);
     onResize();
 
-    // pointer → world coords
+    // mouse → world coords
     function setMouse(e: PointerEvent) {
       const rect = renderer.domElement.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -235,10 +223,9 @@ const HexDotsMonochrome: React.FC<Props> = ({
     wrap.addEventListener("pointerleave", clearMouse);
 
     // pause when off-screen
-    const io = new IntersectionObserver(
-      (entries) => { pausedRef.current = !entries[0].isIntersecting; },
-      { threshold: 0.01 }
-    );
+    const io = new IntersectionObserver((entries) => {
+      pausedRef.current = !entries[0].isIntersecting;
+    }, { threshold: 0.01 });
     io.observe(wrap);
 
     // animate
@@ -262,7 +249,7 @@ const HexDotsMonochrome: React.FC<Props> = ({
       renderer.dispose();
       if (wrap.contains(renderer.domElement)) wrap.removeChild(renderer.domElement);
     };
-  }, [rings, dotSize, idleSpeed, pulseSpeed, pulseDepth, hoverBoost]);
+  }, [rings, dotSize, idleSpeed, pulseSpeed, pulseDepth]);
 
   return <div ref={wrapRef} className={`absolute inset-0 ${className}`} aria-hidden="true" />;
 };
