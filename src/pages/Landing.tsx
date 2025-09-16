@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import NeuraPulseField from "@/components/NeuraPulseField";
 import { VideoModal } from "@/components/VideoModal";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { Button } from "@/components/ui/button";
@@ -14,15 +13,116 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
+      {/* Inline CSS for the background animation (no extra files, no deps) */}
+      <style>{`
+        /* UTIL: hardware-accelerate the background element */
+        .neura-bg { will-change: transform, opacity, background-position, background-size; }
+
+        /* A custom property we animate for "breathing" */
+        @property --pulse {
+          syntax: "<number>";
+          inherits: false;
+          initial-value: 0;
+        }
+
+        /* subtle slow drift */
+        @keyframes neuraDrift {
+          0%   { transform: translate3d(0, 0, 0) scale(1.0); }
+          50%  { transform: translate3d(0, -0.6%, 0) scale(1.01); }
+          100% { transform: translate3d(0, 0, 0) scale(1.0); }
+        }
+
+        /* rhythmic pulse that grows/shrinks the main halo and rings */
+        @keyframes neuraPulse {
+          0%, 100% { --pulse: 0;   opacity: 0.95; }
+          50%      { --pulse: 1;   opacity: 1.0; }
+        }
+
+        /* twinkling speckles (very subtle) */
+        @keyframes neuraGrain {
+          0%   { background-position: 0 0, 0 0, 0 0; }
+          100% { background-position: 5px 4px, -3px -2px, 2px -3px; }
+        }
+
+        /* The actual background layer */
+        .neura-bg {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+
+          /* We stack multiple gradients:
+             1) A central white halo that breathes
+             2) Cyan/teal aura ring that grows subtly
+             3) Wide soft rings for depth
+             4) Very faint speckle/grain layers for life
+          */
+          background-image:
+            radial-gradient(
+              circle at 50% 45%,
+              rgba(255,255,255,0.10) 0%,
+              rgba(255,255,255,0.06) calc(15% + 5% * var(--pulse)),
+              rgba(255,255,255,0.02) calc(34% + 6% * var(--pulse)),
+              rgba(0,0,0,0.00) 70%
+            ),
+            radial-gradient(
+              circle at 50% 45%,
+              rgba(160,255,245,0.18) 0%,
+              rgba(160,255,245,0.10) calc(22% + 6% * var(--pulse)),
+              rgba(160,255,245,0.04) calc(40% + 8% * var(--pulse)),
+              rgba(0,0,0,0.00) 75%
+            ),
+            radial-gradient(
+              circle at 50% 60%,
+              rgba(255,255,255,0.06) 0%,
+              rgba(255,255,255,0.03) 30%,
+              rgba(0,0,0,0.00) 75%
+            ),
+            /* faint speckles — three layers, each drifting slightly */
+            radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.05) 50%, transparent 51%),
+            radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.04) 50%, transparent 51%),
+            radial-gradient(1px 1px at 40% 60%, rgba(160,255,245,0.05) 50%, transparent 51%);
+
+          background-repeat: no-repeat, no-repeat, no-repeat, repeat, repeat, repeat;
+          background-size:
+            140% 140%, /* white halo */
+            160% 160%, /* teal aura */
+            200% 200%, /* deep rings */
+            auto, auto, auto; /* speckles */
+
+          background-position:
+            50% 45%, /* halo */
+            50% 45%, /* aura */
+            50% 60%, /* deep rings */
+            0 0, 0 0, 0 0; /* speckles */
+
+          filter: saturate(1.05) contrast(1.02);
+          animation:
+            neuraPulse 6.2s ease-in-out infinite,
+            neuraDrift 28s ease-in-out infinite,
+            neuraGrain 1.8s steps(2, end) infinite;
+        }
+
+        /* Optional vignette to focus content (very subtle) */
+        .neura-vignette {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%);
+        }
+
+        /* Respect reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+          .neura-bg { animation: none; }
+        }
+      `}</style>
+
       {/* Hero */}
       <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-[#0A0A0A]">
-        {/* Futuristic, lively background */}
-        <NeuraPulseField
-          className="z-0"
-          tint="rgba(160,255,245,0.9)"  // tweak to taste (e.g., rgba(255,255,255,0.9) for pure mono)
-          intensity={1.0}
-          density={1.0}
-        />
+        {/* Lively “neura” background (pure CSS) */}
+        <div className="neura-bg" />
+        <div className="neura-vignette" />
 
         {/* Foreground content */}
         <div className="relative z-10 w-full max-w-4xl mx-auto px-6 text-center">
