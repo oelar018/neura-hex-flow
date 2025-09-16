@@ -295,7 +295,7 @@ export default function Landing() {
             );
           background-repeat:no-repeat;
           background-size:170% 170%, 200% 200%;
-          animation: heartbeat 12s ease-in-out infinite;
+          animation: heartbeat 20s ease-in-out infinite;
           filter: saturate(1.04) contrast(1.02);
         }
 
