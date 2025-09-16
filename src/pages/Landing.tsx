@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowDown, Play, CheckCircle, Users, Zap, Shield } from "lucide-react";
 
 /** =========================
- *  Canvas background: stars + neural links
+ *  Canvas background: stars + neural links (calmer version)
  *  ========================= */
 type Particle = {
   x: number;
@@ -25,26 +25,26 @@ function NeuraBackground({
   const starsRef = useRef<HTMLCanvasElement | null>(null);
   const linksRef = useRef<HTMLCanvasElement | null>(null);
 
-  // pointer-follow (center bias)
   const pointer = useRef({ mx: 0.5, my: 0.5 });
-
-  // particles and control refs
   const particlesRef = useRef<Particle[]>([]);
   const rafRef = useRef<number | null>(null);
   const lastTRef = useRef<number>(0);
   const pausedRef = useRef<boolean>(false);
   const dpr = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
 
-  // settings tuned for desktop + mobile
+  // **CALMER SETTINGS**
   const settings = useMemo(
     () => ({
       starLayers: 3,
-      density: 0.16, // particles per vw*vh / 10000 (scaled below)
-      maxSpeed: 0.015, // px/ms (scaled by depth)
-      linkDistance: 130, // px (scaled by depth & DPR)
-      linkWidth: 0.9,
-      heartbeatMs: 1350, // BPM ~ 44
-      twinkleMs: 2200,
+      density: 0.11,         // was 0.16
+      maxSpeed: 0.009,       // was 0.015
+      linkDistance: 105,     // was 130
+      linkWidth: 0.7,        // was 0.9
+      linkChance: 0.55,      // draw ~55% of eligible links
+      heartbeatMs: 2200,     // was 1350
+      twinkleMs: 3200,       // was 2200
+      heartbeatVelAmp: 0.08, // was 0.15
+      heartbeatGlowAmp: 0.25 // was 0.35 (node glow)
     }),
     []
   );
@@ -87,14 +87,13 @@ function NeuraBackground({
         c.style.height = `${h}px`;
       });
 
-      // regenerate particles to match area (keep feel constant)
-      const area = (w * h) / 10000; // coarse cells
-      const targetCount = Math.round(area * settings.density * 60); // ~60 looks rich
+      const area = (w * h) / 10000;
+      const targetCount = Math.round(area * settings.density * 60);
       const ps: Particle[] = [];
       for (let i = 0; i < targetCount; i++) {
-        const z = Math.random(); // depth 0..1
-        const s = 0.6 + z * 1.8; // dot size
-        const speed = (0.25 + z) * settings.maxSpeed; // deeper = faster
+        const z = Math.random();
+        const s = 0.6 + z * 1.8;
+        const speed = (0.25 + z) * settings.maxSpeed;
         const dir = Math.random() * Math.PI * 2;
         ps.push({
           x: Math.random() * w * dpr,
@@ -112,13 +111,9 @@ function NeuraBackground({
     resize();
     window.addEventListener("resize", resize);
 
-    // draw loop
     const starsCtx = starsRef.current?.getContext("2d");
     const linksCtx = linksRef.current?.getContext("2d");
     if (!starsCtx || !linksCtx) return;
-
-    // soft vignette + aura gradient (under canvases via CSS)
-    // (handled in parent styles)
 
     function frame(ts: number) {
       if (pausedRef.current) return;
@@ -131,103 +126,91 @@ function NeuraBackground({
       const ps = particlesRef.current;
       const { mx, my } = pointer.current;
 
-      // Parallax offset (very subtle)
-      const parallaxX = (mx - 0.5) * 14 * dpr;
-      const parallaxY = (my - 0.5) * 10 * dpr;
+      const parallaxX = (mx - 0.5) * 10 * dpr;
+      const parallaxY = (my - 0.5) * 7 * dpr;
 
-      // heartbeat 0..1..0 curve
+      // heartbeat 0..1..0
       const hbPhase = (ts % settings.heartbeatMs) / settings.heartbeatMs;
       const heartbeat =
         hbPhase < 0.4
           ? Math.sin((hbPhase / 0.4) * Math.PI)
           : hbPhase < 0.7
-          ? 0.35 * Math.sin(((hbPhase - 0.4) / 0.3) * Math.PI)
-          : 0.12 * Math.sin(((hbPhase - 0.7) / 0.3) * Math.PI);
+          ? 0.22 * Math.sin(((hbPhase - 0.4) / 0.3) * Math.PI)
+          : 0.08 * Math.sin(((hbPhase - 0.7) / 0.3) * Math.PI);
 
-      // clear layers
       starsCtx.clearRect(0, 0, width, height);
       linksCtx.clearRect(0, 0, width, height);
 
-      // draw stars
+      // STARS
       starsCtx.save();
-      if (!reduceMotion) {
-        starsCtx.translate(parallaxX * 0.5, parallaxY * 0.5);
-      }
+      if (!reduceMotion) starsCtx.translate(parallaxX * 0.5, parallaxY * 0.5);
       for (let i = 0; i < ps.length; i++) {
         const p = ps[i];
 
-        // drift
         if (!reduceMotion) {
-          p.x += p.vx * dt * (1 + 0.15 * heartbeat);
-          p.y += p.vy * dt * (1 + 0.15 * heartbeat);
+          p.x += p.vx * dt * (1 + settings.heartbeatVelAmp * heartbeat);
+          p.y += p.vy * dt * (1 + settings.heartbeatVelAmp * heartbeat);
         }
 
-        // wrap
         if (p.x < -10) p.x = width + 10;
         if (p.x > width + 10) p.x = -10;
         if (p.y < -10) p.y = height + 10;
         if (p.y > height + 10) p.y = -10;
 
-        // twinkle + pulse
         const tw =
           0.55 +
-          0.45 *
+          0.35 *
             Math.abs(
-              Math.sin((ts / settings.twinkleMs) * (1.2 + p.z * 0.6) + p.baseTwinkle)
+              Math.sin((ts / settings.twinkleMs) * (1.1 + p.z * 0.5) + p.baseTwinkle)
             ) +
-          0.25 * heartbeat;
+          0.18 * heartbeat;
 
-        // color: mix cool white + cyan tint by depth
-        const cyan = 190 + Math.floor(40 * p.z); // hue-ish
-        starsCtx.globalAlpha = 0.45 + 0.55 * tw;
+        starsCtx.globalAlpha = 0.38 + 0.52 * tw;
         starsCtx.beginPath();
-        starsCtx.arc(p.x, p.y, p.size * (1 + 0.25 * heartbeat), 0, Math.PI * 2);
-        // soft radial fill
+        starsCtx.arc(p.x, p.y, p.size * (1 + 0.18 * heartbeat), 0, Math.PI * 2);
         const g = starsCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
         g.addColorStop(0, `rgba(255,255,255,0.95)`);
-        g.addColorStop(0.5, `rgba(160,255,245,0.55)`);
+        g.addColorStop(0.5, `rgba(160,255,245,0.48)`);
         g.addColorStop(1, `rgba(0,0,0,0)`);
         starsCtx.fillStyle = g;
         starsCtx.fill();
       }
       starsCtx.restore();
 
-      // draw neural links (distance-based)
+      // LINKS
       linksCtx.save();
-      if (!reduceMotion) {
-        linksCtx.translate(parallaxX, parallaxY);
-      }
+      if (!reduceMotion) linksCtx.translate(parallaxX, parallaxY);
       linksCtx.lineWidth = settings.linkWidth * dpr;
       for (let i = 0; i < ps.length; i++) {
         const a = ps[i];
+        let made = 0; // soft cap links per node
         for (let j = i + 1; j < ps.length; j++) {
+          if (made > 2) break; // at most 3 links per particle
           const b = ps[j];
-          // scale link distance by depth (closer stars (higher z) connect farther)
-          const maxD =
-            (settings.linkDistance + 110 * (a.z + b.z)) * 0.5 * dpr;
+          const maxD = (settings.linkDistance + 90 * (a.z + b.z)) * 0.5 * dpr;
           const dx = a.x - b.x;
           const dy = a.y - b.y;
           const d2 = dx * dx + dy * dy;
-          if (d2 < maxD * maxD) {
+          if (d2 < maxD * maxD && Math.random() < settings.linkChance) {
             const d = Math.sqrt(d2);
-            const t = 1 - d / maxD; // 0..1
-            const alpha = (0.08 + 0.22 * t) * (0.55 + 0.45 * heartbeat);
+            const t = 1 - d / maxD;
+            const alpha = (0.06 + 0.16 * t) * (0.55 + 0.35 * heartbeat);
             linksCtx.strokeStyle = `rgba(170,255,245,${alpha.toFixed(3)})`;
             linksCtx.beginPath();
             linksCtx.moveTo(a.x, a.y);
             linksCtx.lineTo(b.x, b.y);
             linksCtx.stroke();
+            made++;
 
-            // tiny node glow at stronger connections
-            if (t > 0.75) {
+            if (t > 0.84) {
               const nx = (a.x + b.x) / 2;
               const ny = (a.y + b.y) / 2;
-              const ng = linksCtx.createRadialGradient(nx, ny, 0, nx, ny, 10 * dpr);
-              ng.addColorStop(0, `rgba(160,255,245,${0.35 + 0.35 * t})`);
+              const ng = linksCtx.createRadialGradient(nx, ny, 0, nx, ny, 9 * dpr);
+              ng.addColorStop(0, `rgba(160,255,245,${0.22 + settings.heartbeatGlowAmp * t})`);
               ng.addColorStop(1, "rgba(0,0,0,0)");
               linksCtx.fillStyle = ng;
               linksCtx.beginPath();
-              linksCtx.arc(nx, ny, 10 * dpr, 0, Math.PI * 2);
+              linksCtx.arc(nx, ny, 9 * dpr, 0, Math.PI * 2);
               linksCtx.fill();
             }
           }
@@ -235,7 +218,6 @@ function NeuraBackground({
       }
       linksCtx.restore();
 
-      // continue
       rafRef.current = requestAnimationFrame(frame);
     }
 
@@ -257,7 +239,6 @@ function NeuraBackground({
 
   return (
     <>
-      {/* Aura + vignette sit in CSS below; these canvases render the motion */}
       <canvas ref={starsRef} className="absfill block" />
       <canvas ref={linksRef} className="absfill block" />
     </>
@@ -274,17 +255,15 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
-      {/* =================== GLOBAL STYLES FOR THE BACKDROP =================== */}
       <style>{`
         @property --mx { syntax: "<number>"; inherits: true; initial-value: 0.5; }
         @property --my { syntax: "<number>"; inherits: true; initial-value: 0.5; }
         @property --pulse { syntax: "<number>"; inherits: false; initial-value: 0; }
 
-        /* slow heartbeat to modulate aura brightness */
         @keyframes heartbeat {
           0%,100% { --pulse: 0; filter: brightness(1); }
-          40%      { --pulse: 1; filter: brightness(1.06); }
-          70%      { --pulse: .25; filter: brightness(1.02); }
+          40%      { --pulse: 1; filter: brightness(1.05); }
+          70%      { --pulse: .25; filter: brightness(1.015); }
         }
 
         .absfill { position:absolute; inset:0; pointer-events:none; }
@@ -297,37 +276,35 @@ export default function Landing() {
           background: #0A0A0A;
         }
 
-        /* Soft halo + teal aura behind canvases */
         .neura-aura {
           z-index:0;
           background-image:
             radial-gradient(
               circle at var(--cx) var(--cy),
-              rgba(255,255,255,0.14) 0%,
-              rgba(255,255,255,0.06) calc(24% + 6% * var(--pulse)),
-              rgba(255,255,255,0.02) calc(44% + 6% * var(--pulse)),
-              rgba(0,0,0,0) 70%
+              rgba(255,255,255,0.12) 0%,
+              rgba(255,255,255,0.05) calc(26% + 5% * var(--pulse)),
+              rgba(255,255,255,0.02) calc(46% + 6% * var(--pulse)),
+              rgba(0,0,0,0) 72%
             ),
             radial-gradient(
               circle at var(--cx) var(--cy),
-              rgba(160,255,245,0.22) 0%,
-              rgba(160,255,245,0.12) calc(32% + 6% * var(--pulse)),
-              rgba(160,255,245,0.06) calc(58% + 6% * var(--pulse)),
-              rgba(0,0,0,0) 90%
+              rgba(160,255,245,0.18) 0%,
+              rgba(160,255,245,0.10) calc(34% + 6% * var(--pulse)),
+              rgba(160,255,245,0.05) calc(60% + 6% * var(--pulse)),
+              rgba(0,0,0,0) 92%
             );
           background-repeat:no-repeat;
           background-size:170% 170%, 200% 200%;
-          animation: heartbeat 10s ease-in-out infinite;
-          filter: saturate(1.05) contrast(1.03);
+          animation: heartbeat 12s ease-in-out infinite;
+          filter: saturate(1.04) contrast(1.02);
         }
 
-        /* Outer vignette to keep text readable */
         .neura-vignette {
           z-index:4;
           background: radial-gradient(ellipse at 50% 50%,
             rgba(0,0,0,0) 0%,
-            rgba(0,0,0,0.0) 55%,
-            rgba(0,0,0,0.5) 100%);
+            rgba(0,0,0,0.0) 56%,
+            rgba(0,0,0,0.48) 100%);
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -335,7 +312,7 @@ export default function Landing() {
         }
       `}</style>
 
-      {/* =================== HERO =================== */}
+      {/* HERO */}
       <section
         ref={heroRef}
         className="relative neura-hero min-h-screen flex items-center"
@@ -351,7 +328,6 @@ export default function Landing() {
           (e.currentTarget as HTMLElement).style.setProperty("--my", "0.5");
         }}
       >
-        {/* Backdrop layers */}
         <div className="absfill neura-aura" />
         <NeuraBackground followRef={heroRef} />
         <div className="absfill neura-vignette" />
@@ -370,7 +346,9 @@ export default function Landing() {
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-4">
-            <Button variant="hero" size="lg" onClick={scrollToWaitlist} className="group">
+            <Button variant="hero" size="lg" onClick={() => {
+              document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
+            }} className="group">
               Join the waitlist
               <ArrowDown className="w-4 h-4 ml-2 group-hover:translate-y-0.5 transition-transform" />
             </Button>
@@ -389,7 +367,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* =================== BODY =================== */}
+      {/* BODY */}
       <section className="py-24 bg-[#0A0A0A]">
         <div className="container mx-auto px-6">
           <div className="max-w-4xl mx-auto">
