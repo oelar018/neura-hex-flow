@@ -1,15 +1,15 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { 
   Briefcase, 
   Handshake, 
-  Users, 
   TrendingUp, 
-  GraduationCap, 
   Lightbulb, 
-  MessageCircle, 
-  Stethoscope 
+  MessageCircle 
 } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
+import { MotionSection, MotionItem } from "./ui/MotionSection";
+import { GlassCard } from "./ui/GlassCard";
 
 export const UseCases: React.FC = () => {
   const useCases = [
@@ -41,7 +41,7 @@ export const UseCases: React.FC = () => {
   ];
 
   return (
-    <section id="use-cases" className="py-24 bg-[#0A0A0A]">
+    <MotionSection id="use-cases" className="bg-gradient-aurora">
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="Use Cases"
@@ -49,30 +49,40 @@ export const UseCases: React.FC = () => {
           subtitle="From boardrooms to classrooms, Neura AI adapts to your context"
         />
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+        {/* Desktop: 4x2 grid, Tablet: auto-fit grid, Mobile: 2 columns */}
+        <div className="grid grid-cols-2 md:auto-fit-minmax-220 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {useCases.map((useCase, index) => {
             const Icon = useCase.icon;
             return (
-              <div
-                key={index}
-                className="group p-6 rounded-2xl bg-neutral-900/40 border border-white/5 hover:border-white/20 transition-all duration-300 hover:scale-105"
-              >
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white/5 mb-4 group-hover:bg-white/10 transition-colors">
-                  <Icon className="w-6 h-6 text-white/80" />
-                </div>
-                
-                <h3 className="font-semibold text-white mb-2 text-sm">
-                  {useCase.title}
-                </h3>
-                
-                <p className="text-xs text-neutral-400">
-                  {useCase.outcome}
-                </p>
-              </div>
+              <MotionItem key={index}>
+                <GlassCard className="p-6 h-full flex flex-col">
+                  <motion.div 
+                    className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary/10 mb-4"
+                    animate={{ 
+                      y: [0, -2, 0] 
+                    }}
+                    transition={{ 
+                      duration: 3,
+                      repeat: Infinity,
+                      delay: index * 0.2 
+                    }}
+                  >
+                    <Icon className="w-6 h-6 text-primary" />
+                  </motion.div>
+                  
+                  <h3 className="font-semibold text-white mb-2 text-sm">
+                    {useCase.title}
+                  </h3>
+                  
+                  <p className="text-xs text-foreground-muted flex-grow">
+                    {useCase.outcome}
+                  </p>
+                </GlassCard>
+              </MotionItem>
             );
           })}
         </div>
       </div>
-    </section>
+    </MotionSection>
   );
 };

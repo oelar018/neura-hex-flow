@@ -1,9 +1,12 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import { VideoModal } from "@/components/VideoModal";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, Play } from "lucide-react";
 import { scrollToId } from "@/utils/scroll";
-import { Header } from "@/components/Header";
+import { GlassHeader } from "@/components/chrome/GlassHeader";
+import { GlobalBackground } from "@/components/chrome/GlobalBackground";
+import HexHero from "@/components/HexHero";
 import { Problem } from "@/components/Problem";
 import { Solution } from "@/components/Solution";
 import { HowItWorks } from "@/components/HowItWorks";

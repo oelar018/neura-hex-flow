@@ -7,69 +7,101 @@
 
 @layer base {
   :root {
-    /* Dark theme - Neura AI brand colors */
-    --background: 220 27% 8%;
-    --background-subtle: 220 20% 12%;
-    --background-muted: 220 15% 16%;
-    --foreground: 210 40% 98%;
-    --foreground-muted: 215 20.2% 65.1%;
+    /* Background Colors */
+    --background: 10 10 10; /* #0A0A0A - Deep black */
+    --background-subtle: 15 15 15; /* #0F0F0F - Slightly lighter */
+    --background-muted: 20 20 20; /* #141414 - Muted background */
+
+    /* Foreground Colors */
+    --foreground: 255 255 255; /* #FFFFFF - Pure white */
+    --foreground-muted: 163 163 163; /* #A3A3A3 - Muted text */
+
+    /* Card Colors */
+    --card: 15 15 15; /* #0F0F0F - Card background */
+    --card-foreground: 255 255 255; /* #FFFFFF - Card text */
+    --card-subtle: 20 20 20; /* #141414 - Subtle card variant */
+
+    /* Popover Colors */
+    --popover: 15 15 15; /* #0F0F0F */
+    --popover-foreground: 255 255 255; /* #FFFFFF */
+
+    /* Primary Colors (Cyan) */
+    --primary: 180 100% 50%; /* #00FFFF - Bright cyan */
+    --primary-foreground: 0 0% 0%; /* #000000 - Black text on cyan */
+    --primary-glow: 180 100% 60%; /* Lighter cyan for glow effects */
+    --primary-subtle: 180 100% 15%; /* Dark cyan for subtle backgrounds */
+
+    /* Secondary Colors */
+    --secondary: 0 0% 15%; /* #262626 - Dark gray */
+    --secondary-foreground: 255 255 255; /* #FFFFFF */
+    --secondary-hover: 0 0% 20%; /* #333333 - Hover state */
+
+    /* Muted Colors */
+    --muted: 0 0% 15%; /* #262626 */
+    --muted-foreground: 163 163 163; /* #A3A3A3 */
+
+    /* Accent Colors */
+    --accent: 180 100% 50%; /* Same as primary for consistency */
+    --accent-foreground: 0 0% 0%; /* #000000 */
+    --accent-subtle: 180 100% 10%; /* Very dark cyan */
+
+    /* Status Colors */
+    --destructive: 0 84% 60%; /* #EF4444 - Red for errors */
+    --destructive-foreground: 255 255 255; /* #FFFFFF */
+    --success: 142 76% 36%; /* #22C55E - Green for success */
+    --success-foreground: 255 255 255; /* #FFFFFF */
+
+    /* Border and Input */
+    --border: 255 255 255 / 0.1; /* White with 10% opacity */
+    --input: 0 0% 15%; /* #262626 - Input background */
+    --ring: 180 100% 50%; /* Cyan focus ring */
+
+    /* Hexagon Effect Colors */
+    --hex-primary: 180 100% 50%; /* #00FFFF - Primary hex color */
+    --hex-secondary: 180 100% 35%; /* Darker cyan */
+    --hex-glow: 180 100% 70%; /* Lighter cyan glow */
+    --hex-dim: 180 50% 25%; /* Dimmed hex color */
+
+    /* Glass Effect Colors */
+    --glass-bg: 255 255 255 / 0.03; /* Ultra subtle white glass */
+    --glass-border: 255 255 255 / 0.08; /* Hairline glass border */
+    --glass-border-gradient: linear-gradient(135deg, hsl(255 255 255 / 0.15) 0%, hsl(255 255 255 / 0.02) 100%);
     
-    /* Card and surfaces */
-    --card: 220 20% 12%;
-    --card-foreground: 210 40% 98%;
-    --card-subtle: 220 15% 16%;
+    /* Brand Glow Effects */
+    --brand-glow: 180 100% 50% / 0.3; /* Cyan glow */
+    --brand-glow-soft: 180 100% 60% / 0.15; /* Softer cyan glow */
     
-    /* Popover */
-    --popover: 220 20% 12%;
-    --popover-foreground: 210 40% 98%;
+    /* Aurora Gradient Colors */
+    --brand-aurora-1: 180 100% 50%; /* Cyan */
+    --brand-aurora-2: 200 100% 60%; /* Light blue */
+    --brand-aurora-3: 160 100% 40%; /* Teal */
     
-    /* Neura AI Brand - Cyan/Teal accents */
-    --primary: 180 100% 60%;
-    --primary-foreground: 220 27% 8%;
-    --primary-glow: 180 100% 70%;
-    --primary-subtle: 180 50% 25%;
+    /* Noise and Texture */
+    --noise-opacity: 0.08; /* Light noise overlay */
     
-    /* Secondary - Cool neutrals */
-    --secondary: 220 15% 20%;
-    --secondary-foreground: 210 40% 98%;
-    --secondary-hover: 220 15% 25%;
-    
-    /* Muted elements */
-    --muted: 220 15% 16%;
-    --muted-foreground: 215 20.2% 65.1%;
-    
-    /* Accent - Brighter cyan for interactions */
-    --accent: 180 100% 60%;
-    --accent-foreground: 220 27% 8%;
-    --accent-subtle: 180 100% 15%;
-    
-    /* Status colors */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
-    
-    /* Borders and inputs */
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --input-focus: 180 100% 60%;
-    --ring: 180 100% 60%;
-    
-    /* Hexagon effect colors */
-    --hex-primary: 180 100% 60%;
-    --hex-secondary: 180 80% 70%;
-    --hex-glow: 180 100% 80%;
-    --hex-dim: 180 30% 30%;
-    
+    /* Dynamic Variables (controlled by scroll) */
+    --bg-intensity: 0; /* 0-1 scroll progress */
+    --glass-alpha: 0.6; /* Glass transparency multiplier */
+    --grain-opacity: 0.08; /* Grain overlay opacity */
+
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(220 27% 8%) 0%, hsl(220 20% 12%) 50%, hsl(220 15% 16%) 100%);
-    --gradient-hero: radial-gradient(ellipse at top, hsl(180 100% 15% / 0.3) 0%, transparent 50%);
-    --gradient-glow: radial-gradient(circle, hsl(180 100% 60% / 0.2) 0%, transparent 70%);
-    
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-glow)) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background-subtle)) 100%);
+    --gradient-glow: radial-gradient(circle at center, hsl(var(--primary-glow) / 0.3) 0%, transparent 70%);
+    --gradient-glass: linear-gradient(135deg, hsl(var(--glass-bg)) 0%, hsl(255 255 255 / 0.01) 100%);
+    --gradient-aurora: linear-gradient(135deg, 
+      hsl(var(--brand-aurora-1) / 0.05) 0%, 
+      hsl(var(--brand-aurora-2) / 0.03) 50%, 
+      hsl(var(--brand-aurora-3) / 0.05) 100%);
+    --gradient-handoff: linear-gradient(180deg, 
+      hsl(var(--background)) 0%, 
+      hsl(var(--background) / 0.95) 20%,
+      hsl(var(--background) / 0.8) 100%);
+
     /* Spacing and layout */
     --radius: 0.75rem;
     --header-height: 4rem;
-    
+
     /* Animation transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
@@ -94,9 +126,38 @@
   *:focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
+
+  /* Glass noise utility */
+  .glass-noise::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.02) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, hsl(var(--primary) / 0.01) 0%, transparent 40%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .glass-noise::before {
+      background: radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.01) 0%, transparent 40%);
+    }
+  }
 }
 
 @layer components {
+  /* Custom grid auto-fit for responsive Use Cases */
+  .auto-fit-minmax-220 {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  /* Floating animation for icons */
+  .animate-float-gentle {
+    animation: float-gentle 4s ease-in-out infinite;
+  }
+  
   /* Custom animations */
   .animate-float {
     animation: float 6s ease-in-out infinite;
@@ -121,6 +182,11 @@
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-20px); }
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
 }
 
 @keyframes glow {

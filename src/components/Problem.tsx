@@ -1,6 +1,9 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { AlertCircle, Search, MessageCircle } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
+import { MotionSection, MotionItem } from "./ui/MotionSection";
+import { GlassCard } from "./ui/GlassCard";
 
 export const Problem: React.FC = () => {
   const problems = [
@@ -22,7 +25,7 @@ export const Problem: React.FC = () => {
   ];
 
   return (
-    <section id="problem" className="py-24 bg-[#0A0A0A]">
+    <MotionSection id="problem" className="bg-gradient-aurora">
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="The Challenge"
@@ -34,24 +37,33 @@ export const Problem: React.FC = () => {
           {problems.map((problem, index) => {
             const Icon = problem.icon;
             return (
-              <div
-                key={index}
-                className="text-center space-y-4 p-6 rounded-2xl bg-neutral-900/40 border border-white/5 hover:border-white/10 transition-colors"
-              >
-                <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-red-500/10">
-                  <Icon className="w-6 h-6 text-red-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white">
-                  {problem.title}
-                </h3>
-                <p className="text-neutral-300 text-sm">
-                  {problem.description}
-                </p>
-              </div>
+              <MotionItem key={index}>
+                <GlassCard className="text-center space-y-4 p-6">
+                  <motion.div 
+                    className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-destructive/10"
+                    animate={{ 
+                      scale: [1, 1.05, 1] 
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      delay: index * 0.3 
+                    }}
+                  >
+                    <Icon className="w-6 h-6 text-destructive" />
+                  </motion.div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {problem.title}
+                  </h3>
+                  <p className="text-foreground-muted text-sm">
+                    {problem.description}
+                  </p>
+                </GlassCard>
+              </MotionItem>
             );
           })}
         </div>
       </div>
-    </section>
+    </MotionSection>
   );
 };

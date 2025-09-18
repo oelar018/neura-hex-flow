@@ -76,12 +76,19 @@ export default {
 					secondary: 'hsl(var(--hex-secondary))',
 					glow: 'hsl(var(--hex-glow))',
 					dim: 'hsl(var(--hex-dim))',
+				},
+				glass: {
+					bg: 'hsl(var(--glass-bg))',
+					border: 'hsl(var(--glass-border))',
 				}
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-hero': 'var(--gradient-hero)',
 				'gradient-glow': 'var(--gradient-glow)',
+				'gradient-glass': 'var(--gradient-glass)',
+				'gradient-aurora': 'var(--gradient-aurora)',
+				'gradient-handoff': 'var(--gradient-handoff)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
