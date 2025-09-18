@@ -1,6 +1,9 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Ear, Brain, MessageSquare } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
+import { MotionSection, MotionItem } from "./ui/MotionSection";
+import { GlassCard } from "./ui/GlassCard";
 
 export const HowItWorks: React.FC = () => {
   const steps = [
@@ -25,7 +28,7 @@ export const HowItWorks: React.FC = () => {
   ];
 
   return (
-    <section id="how" className="py-24 bg-[#0A0A0A]">
+    <MotionSection id="how" className="bg-gradient-aurora">
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="How It Works"
@@ -38,38 +41,58 @@ export const HowItWorks: React.FC = () => {
             {steps.map((step, index) => {
               const Icon = step.icon;
               return (
-                <div
-                  key={index}
-                  className="relative text-center space-y-4 p-8 rounded-2xl bg-neutral-900/40 border border-white/5"
-                >
-                  <div className="absolute -top-4 left-8 bg-[#0A0A0A] px-3 py-1 rounded-full border border-white/10">
-                    <span className="text-xs font-mono text-neutral-400">{step.step}</span>
-                  </div>
-                  
-                  <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center bg-white/5 mb-6">
-                    <Icon className="w-8 h-8 text-white/80" />
-                  </div>
-                  
-                  <h3 className="text-xl font-semibold text-white mb-3">
-                    {step.title}
-                  </h3>
-                  
-                  <p className="text-neutral-300">
-                    {step.description}
-                  </p>
-                </div>
+                <MotionItem key={index}>
+                  <GlassCard className="relative text-center space-y-4 p-8">
+                    <motion.div
+                      className="absolute -top-4 left-8 bg-background px-3 py-1 rounded-full border border-glass-border"
+                      initial={{ scale: 0, rotate: -90 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ delay: index * 0.2, type: "spring" }}
+                    >
+                      <span className="text-xs font-mono text-foreground-muted">{step.step}</span>
+                    </motion.div>
+                    
+                    <motion.div 
+                      className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center bg-primary/10 mb-6"
+                      animate={{ 
+                        scale: [1, 1.05, 1] 
+                      }}
+                      transition={{ 
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: index * 0.3 
+                      }}
+                    >
+                      <Icon className="w-8 h-8 text-primary" />
+                    </motion.div>
+                    
+                    <h3 className="text-xl font-semibold text-foreground mb-3">
+                      {step.title}
+                    </h3>
+                    
+                    <p className="text-foreground-muted">
+                      {step.description}
+                    </p>
+                  </GlassCard>
+                </MotionItem>
               );
             })}
           </div>
           
-          <div className="text-center mt-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-900/60 border border-white/10">
-              <div className="w-2 h-2 rounded-full bg-green-400"></div>
-              <span className="text-sm text-neutral-300">No manual prompting</span>
+          <MotionItem>
+            <div className="text-center mt-12">
+              <motion.div 
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/20"
+                animate={{ opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                <div className="w-2 h-2 rounded-full bg-success"></div>
+                <span className="text-sm text-success">No manual prompting</span>
+              </motion.div>
             </div>
-          </div>
+          </MotionItem>
         </div>
       </div>
-    </section>
+    </MotionSection>
   );
 };

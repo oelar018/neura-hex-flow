@@ -1,7 +1,10 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Zap, Filter, Settings, Mic, Type } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
 import { Badge } from "./ui/badge";
+import { MotionSection, MotionItem } from "./ui/MotionSection";
+import { GlassCard } from "./ui/GlassCard";
 
 export const Solution: React.FC = () => {
   const features = [
@@ -23,7 +26,7 @@ export const Solution: React.FC = () => {
   ];
 
   return (
-    <section id="solution" className="py-24 bg-[#0A0A0A]">
+    <MotionSection id="solution" className="bg-gradient-aurora" gradient>
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="The Solution"
@@ -33,56 +36,69 @@ export const Solution: React.FC = () => {
         
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center mb-12">
-            <div className="space-y-6">
-              <p className="text-lg text-neutral-300">
-                Neura AI works in the background, listening and understanding context 
-                to deliver relevant, actionable insights without requiring typing or prompting.
-              </p>
-              
-              <div className="flex gap-3">
-                <Badge variant="secondary" className="flex items-center gap-2">
-                  <Type className="w-4 h-4" />
-                  Text Mode
-                </Badge>
-                <Badge variant="secondary" className="flex items-center gap-2">
-                  <Mic className="w-4 h-4" />
-                  Voice Mode
-                </Badge>
+            <MotionItem>
+              <div className="space-y-6">
+                <p className="text-lg text-foreground-muted">
+                  Neura AI works in the background, listening and understanding context 
+                  to deliver relevant, actionable insights without requiring typing or prompting.
+                </p>
+                
+                <div className="flex gap-3">
+                  <Badge variant="secondary" className="flex items-center gap-2">
+                    <Type className="w-4 h-4" />
+                    Text Mode
+                  </Badge>
+                  <Badge variant="secondary" className="flex items-center gap-2">
+                    <Mic className="w-4 h-4" />
+                    Voice Mode
+                  </Badge>
+                </div>
               </div>
-            </div>
+            </MotionItem>
             
-            <div className="bg-neutral-900/60 rounded-2xl p-8 border border-white/10">
-              <div className="text-sm text-neutral-400 mb-2">Neura AI suggests:</div>
-              <div className="text-white font-medium">
-                "The third investment scenario presents the highest yield of 23.5%. 
-                Consider the risk factors we discussed in yesterday's email."
-              </div>
-            </div>
+            <MotionItem>
+              <GlassCard className="p-8">
+                <div className="text-sm text-foreground-muted mb-2">Neura AI suggests:</div>
+                <div className="text-foreground font-medium">
+                  "The third investment scenario presents the highest yield of 23.5%. 
+                  Consider the risk factors we discussed in yesterday's email."
+                </div>
+              </GlassCard>
+            </MotionItem>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <div
-                  key={index}
-                  className="text-center space-y-4 p-6 rounded-2xl bg-neutral-900/40 border border-white/5"
-                >
-                  <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-white/5">
-                    <Icon className="w-6 h-6 text-white/80" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">
-                    {feature.title}
-                  </h3>
-                  <p className="text-neutral-300 text-sm">
-                    {feature.description}
-                  </p>
-                </div>
+                <MotionItem key={index}>
+                  <GlassCard className="text-center space-y-4 p-6 h-full">
+                    <motion.div 
+                      className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-primary/10"
+                      animate={{ 
+                        y: [0, -2, 0] 
+                      }}
+                      transition={{ 
+                        duration: 3,
+                        repeat: Infinity,
+                        delay: index * 0.4 
+                      }}
+                    >
+                      <Icon className="w-6 h-6 text-primary" />
+                    </motion.div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      {feature.title}
+                    </h3>
+                    <p className="text-foreground-muted text-sm">
+                      {feature.description}
+                    </p>
+                  </GlassCard>
+                </MotionItem>
               );
             })}
           </div>
         </div>
       </div>
-    </section>
+    </MotionSection>
   );
 };

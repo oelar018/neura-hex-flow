@@ -263,8 +263,12 @@ export default function Landing() {
   const scrollToWaitlist = () => scrollToId("waitlist");
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] font-inter">
-      <Header />
+    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
+      {/* Global animated background */}
+      <GlobalBackground />
+      
+      {/* Glass morphism header */}
+      <GlassHeader />
       <style>{`
         @property --mx { syntax: "<number>"; inherits: true; initial-value: 0.5; }
         @property --my { syntax: "<number>"; inherits: true; initial-value: 0.5; }
@@ -375,13 +379,15 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* NEW SECTIONS */}
-      <Problem />
-      <Solution />
-      <HowItWorks />
-      <UseCases />
-      <FAQ />
-      <CTA />
+      {/* Main content sections with glass design */}
+      <main className="relative z-10">
+        <Problem />
+        <Solution />
+        <HowItWorks />
+        <UseCases />
+        <FAQ />
+        <CTA />
+      </main>
       <Footer />
 
       <VideoModal isOpen={showVideoModal} onClose={() => setShowVideoModal(false)} />
