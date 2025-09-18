@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { sendToDiscord } from '@/utils/discord';
 
 interface FormData {
   email: string;
@@ -77,6 +78,13 @@ export const WaitlistForm: React.FC = () => {
         if (!response.ok) {
           throw new Error('API Error');
         }
+
+        // Send to Discord webhook if configured
+        await sendToDiscord({ 
+          name: formData.name, 
+          email: formData.email, 
+          use_case: formData.useCase 
+        });
       } catch {
         // Fallback to local storage for development
         const existingEntries = JSON.parse(localStorage.getItem('neuraWaitlist') || '[]');
