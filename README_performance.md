@@ -22,6 +22,7 @@ window.__setQuality('high') // Switch to high quality
 - Spring-based animations
 - Full particle count (120 desktop)
 - Complete visual effects
+- **Identical visuals to original site**
 
 ### Medium Mode (Default Mobile/Low-end)
 - Reduced particle count (80)
@@ -58,3 +59,27 @@ window.__setQuality('high') // Switch to high quality
 - High mode: Maintains current visual quality
 - Medium mode: 15-25% better performance, imperceptible visual changes
 - Low mode: 40-50% better performance, minimal visual impact
+
+## Implementation Details
+
+### Performance Guards Added
+- Framer Motion animations use `once: true` and quality-aware transitions
+- Intersection Observer pauses animations when offscreen
+- Tab visibility API pauses all animations when tab is hidden
+- `content-visibility: auto` on heavy sections
+- Will-change only applied on interaction (hover/focus)
+
+### Quality Detection
+Auto mode detects:
+- Mobile devices (< 768px width)
+- Low memory devices (< 4GB RAM)
+- Slow network connections (< 4G)
+
+Fallback: Medium mode for mobile/low-end, High mode for desktop
+
+### Testing Performance
+1. Open DevTools Performance tab
+2. Test with `?quality=high`, `?quality=medium`, `?quality=low`
+3. Check Lighthouse scores (should be ≥90 performance on mobile)
+4. Verify animations pause when scrolling offscreen
+5. Test tab switching (animations should pause when hidden)

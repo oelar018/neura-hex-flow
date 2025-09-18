@@ -1,5 +1,5 @@
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useRef, useEffect, useState } from "react";
+import { motion, useInView } from "framer-motion";
 import { 
   Briefcase, 
   Handshake, 
@@ -10,8 +10,22 @@ import {
 import { SectionHeading } from "./SectionHeading";
 import { MotionSection, MotionItem } from "./ui/MotionSection";
 import { GlassCard } from "./ui/GlassCard";
+import { getQualityConfig } from "../config/visual";
 
 export const UseCases: React.FC = () => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [isPaused, setIsPaused] = useState(false);
+  const qualityConfig = getQualityConfig();
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsPaused(document.hidden);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const useCases = [
     {
       icon: Briefcase,
@@ -41,7 +55,15 @@ export const UseCases: React.FC = () => {
   ];
 
   return (
-    <MotionSection id="use-cases" className="bg-gradient-aurora">
+    <MotionSection 
+      ref={ref}
+      id="use-cases" 
+      className="bg-gradient-aurora"
+      style={{ 
+        contentVisibility: qualityConfig.contentVisibility ? 'auto' : 'visible',
+        contain: qualityConfig.contentVisibility ? 'content' : 'none'
+      }}
+    >
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="Use Cases"
@@ -58,9 +80,9 @@ export const UseCases: React.FC = () => {
                 <GlassCard className="p-6 h-full flex flex-col">
                   <motion.div 
                     className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary/10 mb-4"
-                    animate={{ 
+                    animate={isInView && !isPaused ? { 
                       y: [0, -2, 0] 
-                    }}
+                    } : false}
                     transition={{ 
                       duration: 3,
                       repeat: Infinity,
@@ -70,7 +92,7 @@ export const UseCases: React.FC = () => {
                     <Icon className="w-6 h-6 text-primary" />
                   </motion.div>
                   
-                  <h3 className="font-semibold text-white mb-2 text-sm">
+                  <h3 className="font-semibold text-foreground mb-2 text-sm">
                     {useCase.title}
                   </h3>
                   

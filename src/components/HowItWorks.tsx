@@ -1,11 +1,25 @@
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useRef, useEffect, useState } from "react";
+import { motion, useInView } from "framer-motion";
 import { Ear, Brain, MessageSquare } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
 import { MotionSection, MotionItem } from "./ui/MotionSection";
 import { GlassCard } from "./ui/GlassCard";
+import { getQualityConfig } from "../config/visual";
 
 export const HowItWorks: React.FC = () => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [isPaused, setIsPaused] = useState(false);
+  const qualityConfig = getQualityConfig();
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsPaused(document.hidden);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const steps = [
     {
       icon: Ear,
@@ -28,7 +42,15 @@ export const HowItWorks: React.FC = () => {
   ];
 
   return (
-    <MotionSection id="how" className="bg-gradient-aurora">
+    <MotionSection 
+      ref={ref}
+      id="how" 
+      className="bg-gradient-aurora"
+      style={{ 
+        contentVisibility: qualityConfig.contentVisibility ? 'auto' : 'visible',
+        contain: qualityConfig.contentVisibility ? 'content' : 'none'
+      }}
+    >
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="How It Works"
@@ -46,17 +68,21 @@ export const HowItWorks: React.FC = () => {
                     <motion.div
                       className="absolute -top-4 left-8 bg-background px-3 py-1 rounded-full border border-glass-border"
                       initial={{ scale: 0, rotate: -90 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ delay: index * 0.2, type: "spring" }}
+                      animate={isInView && !isPaused ? { scale: 1, rotate: 0 } : false}
+                      transition={{ 
+                        delay: index * 0.2, 
+                        type: qualityConfig.animationDuration <= 0.25 ? "tween" : "spring",
+                        duration: qualityConfig.animationDuration 
+                      }}
                     >
                       <span className="text-xs font-mono text-foreground-muted">{step.step}</span>
                     </motion.div>
                     
                     <motion.div 
                       className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center bg-primary/10 mb-6"
-                      animate={{ 
+                      animate={isInView && !isPaused ? { 
                         scale: [1, 1.05, 1] 
-                      }}
+                      } : false}
                       transition={{ 
                         duration: 2,
                         repeat: Infinity,
@@ -83,7 +109,7 @@ export const HowItWorks: React.FC = () => {
             <div className="text-center mt-12">
               <motion.div 
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/20"
-                animate={{ opacity: [0.7, 1, 0.7] }}
+                animate={isInView && !isPaused ? { opacity: [0.7, 1, 0.7] } : false}
                 transition={{ duration: 2, repeat: Infinity }}
               >
                 <div className="w-2 h-2 rounded-full bg-success"></div>

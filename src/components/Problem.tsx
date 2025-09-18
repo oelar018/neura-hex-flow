@@ -1,11 +1,25 @@
-import React from "react";
-import { motion } from "framer-motion";
+import React, { useRef, useEffect, useState } from "react";
+import { motion, useInView } from "framer-motion";
 import { AlertCircle, Search, MessageCircle } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
 import { MotionSection, MotionItem } from "./ui/MotionSection";
 import { GlassCard } from "./ui/GlassCard";
+import { getQualityConfig } from "../config/visual";
 
 export const Problem: React.FC = () => {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [isPaused, setIsPaused] = useState(false);
+  const qualityConfig = getQualityConfig();
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsPaused(document.hidden);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const problems = [
     {
       icon: AlertCircle,
@@ -25,7 +39,15 @@ export const Problem: React.FC = () => {
   ];
 
   return (
-    <MotionSection id="problem" className="bg-gradient-aurora">
+    <MotionSection 
+      ref={ref}
+      id="problem" 
+      className="bg-gradient-aurora"
+      style={{ 
+        contentVisibility: qualityConfig.contentVisibility ? 'auto' : 'visible',
+        contain: qualityConfig.contentVisibility ? 'content' : 'none'
+      }}
+    >
       <div className="container mx-auto px-6">
         <SectionHeading
           eyebrow="The Challenge"
@@ -41,9 +63,9 @@ export const Problem: React.FC = () => {
                 <GlassCard className="text-center space-y-4 p-6">
                   <motion.div 
                     className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center bg-destructive/10"
-                    animate={{ 
+                    animate={isInView && !isPaused ? { 
                       scale: [1, 1.05, 1] 
-                    }}
+                    } : false}
                     transition={{ 
                       duration: 2,
                       repeat: Infinity,
