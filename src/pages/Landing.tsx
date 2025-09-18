@@ -8,8 +8,6 @@ import { Problem } from "@/components/Problem";
 import { Solution } from "@/components/Solution";
 import { HowItWorks } from "@/components/HowItWorks";
 import { UseCases } from "@/components/UseCases";
-import { WhyNot } from "@/components/WhyNot";
-import { Roadmap } from "@/components/Roadmap";
 import { FAQ } from "@/components/FAQ";
 import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
@@ -379,8 +377,6 @@ export default function Landing() {
       <Solution />
       <HowItWorks />
       <UseCases />
-      <WhyNot />
-      <Roadmap />
       <FAQ />
       <CTA />
       <Footer />
