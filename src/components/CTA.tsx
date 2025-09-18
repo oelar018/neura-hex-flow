@@ -4,8 +4,9 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { sendToDiscord } from "../utils/discord";
+import { handleWaitlistSubmission } from "../server";
 
 export const CTA: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -22,21 +23,22 @@ export const CTA: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Submit to existing API
-      const response = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      // Format data for the waitlist API
+      const waitlistData = {
+        email: formData.email,
+        name: formData.name,
+        useCase: [formData.role, formData.use_case].filter(Boolean).join(" - "),
+        marketingOptIn: false, // Default value as it's not collected in this form
+        timestamp: new Date().toISOString(),
+      };
 
-      if (!response.ok) {
-        throw new Error('Failed to submit');
-      }
+      // Submit to local waitlist handler
+      await handleWaitlistSubmission(waitlistData);
 
-      // Send to Discord webhook if configured
-      await sendToDiscord(formData);
+      // Send to Discord webhook (non-blocking)
+      sendToDiscord(formData).catch(error => 
+        console.warn('Discord notification failed:', error)
+      );
 
       toast({
         title: "Thanks for joining!",
