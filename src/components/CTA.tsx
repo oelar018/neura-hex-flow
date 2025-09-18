@@ -56,7 +56,7 @@ export const CTA: React.FC = () => {
   };
 
   return (
-    <section id="contact" className="py-24 bg-[#0A0A0A]">
+    <section id="waitlist" className="py-24 bg-[#0A0A0A]">
       <div className="container mx-auto px-6">
         <div className="max-w-2xl mx-auto text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">

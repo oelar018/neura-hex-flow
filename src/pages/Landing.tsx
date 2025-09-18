@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { VideoModal } from "@/components/VideoModal";
 import { Button } from "@/components/ui/button";
 import { ArrowDown, Play } from "lucide-react";
+import { scrollToId } from "@/utils/scroll";
 import { Header } from "@/components/Header";
 import { Problem } from "@/components/Problem";
 import { Solution } from "@/components/Solution";
@@ -258,9 +259,7 @@ export default function Landing() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const heroRef = useRef<HTMLElement | null>(null);
 
-  const scrollToWaitlist = () => {
-    document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToWaitlist = () => scrollToId("waitlist");
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] font-inter">
@@ -356,9 +355,7 @@ export default function Landing() {
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-4">
-            <Button variant="hero" size="lg" onClick={() => {
-              document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth" });
-            }} className="group">
+            <Button variant="hero" size="lg" onClick={() => scrollToId("waitlist")} className="group">
               Join the waitlist
               <ArrowDown className="w-4 h-4 ml-2 group-hover:translate-y-0.5 transition-transform" />
             </Button>

@@ -1,4 +1,5 @@
 import React from "react";
+import { scrollToId } from "@/utils/scroll";
 
 export const Header: React.FC = () => {
   const navItems = [
@@ -7,7 +8,7 @@ export const Header: React.FC = () => {
     { label: "How It Works", href: "#how" },
     { label: "Use Cases", href: "#use-cases" },
     { label: "FAQ", href: "#faq" },
-    { label: "Contact", href: "#contact" }
+    { label: "Contact", href: "#waitlist" }
   ];
 
   return (
@@ -24,7 +25,7 @@ export const Header: React.FC = () => {
                 className="text-sm text-neutral-400 hover:text-white transition-colors"
                 onClick={(e) => {
                   e.preventDefault();
-                  document.querySelector(item.href)?.scrollIntoView({ behavior: "smooth" });
+                  scrollToId(item.href.substring(1)); // Remove # from href
                 }}
               >
                 {item.label}
