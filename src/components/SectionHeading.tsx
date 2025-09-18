@@ -16,15 +16,15 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
   return (
     <div className={`text-center mb-12 ${className}`}>
       {eyebrow && (
-        <p className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+        <p className="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-3">
           {eyebrow}
         </p>
       )}
-      <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+      <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
         {title}
       </h2>
       {subtitle && (
-        <p className="text-lg text-neutral-300 max-w-2xl mx-auto">
+        <p className="text-lg text-foreground-muted max-w-2xl mx-auto">
           {subtitle}
         </p>
       )}

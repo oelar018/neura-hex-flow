@@ -68,10 +68,10 @@ export const FAQ: React.FC = () => {
                 value={`item-${index}`}
                 className="border-white/10"
               >
-                <AccordionTrigger className="text-left text-white hover:text-white/80 hover:no-underline">
+                <AccordionTrigger className="text-left text-foreground hover:text-foreground/80 hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-neutral-300">
+                <AccordionContent className="text-foreground-muted">
                   {faq.answer}
                 </AccordionContent>
               </AccordionItem>
