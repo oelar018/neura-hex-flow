@@ -6,8 +6,6 @@ export const Header: React.FC = () => {
     { label: "Solution", href: "#solution" },
     { label: "How It Works", href: "#how" },
     { label: "Use Cases", href: "#use-cases" },
-    { label: "Enterprise", href: "#enterprise" },
-    { label: "Pricing", href: "#pricing" },
     { label: "FAQ", href: "#faq" },
     { label: "Contact", href: "#contact" }
   ];

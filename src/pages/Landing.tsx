@@ -8,14 +8,8 @@ import { Solution } from "@/components/Solution";
 import { HowItWorks } from "@/components/HowItWorks";
 import { UseCases } from "@/components/UseCases";
 import { WhyNot } from "@/components/WhyNot";
-import { Landscape } from "@/components/Landscape";
-import { Testimonials } from "@/components/Testimonials";
-import { Security } from "@/components/Security";
-import { Enterprise } from "@/components/Enterprise";
-import { Pricing } from "@/components/Pricing";
 import { Roadmap } from "@/components/Roadmap";
 import { FAQ } from "@/components/FAQ";
-import { Integrations } from "@/components/Integrations";
 import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
 
@@ -389,14 +383,8 @@ export default function Landing() {
       <HowItWorks />
       <UseCases />
       <WhyNot />
-      <Landscape />
-      <Testimonials />
-      <Security />
-      <Enterprise />
-      <Pricing />
       <Roadmap />
       <FAQ />
-      <Integrations />
       <CTA />
       <Footer />
 
