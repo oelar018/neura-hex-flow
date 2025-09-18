@@ -138,10 +138,7 @@ export const CTA: React.FC = () => {
                   <SelectItem value="meetings">Work Meetings</SelectItem>
                   <SelectItem value="sales">Sales Conversations</SelectItem>
                   <SelectItem value="negotiations">Negotiations</SelectItem>
-                  <SelectItem value="interviews">Interviews</SelectItem>
-                  <SelectItem value="training">Training & Coaching</SelectItem>
                   <SelectItem value="brainstorming">Brainstorming</SelectItem>
-                  <SelectItem value="healthcare">Medical Consultations</SelectItem>
                   <SelectItem value="education">Education & Learning</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>

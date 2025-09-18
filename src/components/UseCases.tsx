@@ -29,16 +29,6 @@ export const UseCases: React.FC = () => {
       outcome: "Get strategic talking points and leverage information"
     },
     {
-      icon: Users,
-      title: "Hiring",
-      outcome: "Ask better questions and evaluate candidates effectively"
-    },
-    {
-      icon: GraduationCap,
-      title: "Training",
-      outcome: "Receive coaching tips and best practices in real-time"
-    },
-    {
       icon: Lightbulb,
       title: "Brainstorming",
       outcome: "Generate creative ideas and build on team concepts"
@@ -47,11 +37,6 @@ export const UseCases: React.FC = () => {
       icon: MessageCircle,
       title: "Debates",
       outcome: "Access supporting arguments and factual backing"
-    },
-    {
-      icon: Stethoscope,
-      title: "Diagnostics",
-      outcome: "Get relevant medical insights and decision support"
     }
   ];
 
