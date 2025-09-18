@@ -1,6 +1,7 @@
 import * as React from "react";
 import { motion, useInView, Variants } from "framer-motion";
 import { Section } from "./Section";
+import { getQualityConfig, getCurrentQuality } from '@/config/visual';
 
 interface MotionSectionProps extends React.ComponentProps<typeof Section> {
   stagger?: number;
@@ -16,6 +17,7 @@ const MotionSection = React.forwardRef<HTMLElement, MotionSectionProps>(
       amount: 0.2,
       margin: "-100px 0px -100px 0px"
     });
+    const qualityConfig = getQualityConfig();
 
     // Check for reduced motion preference
     const prefersReducedMotion = React.useMemo(() => {
@@ -30,7 +32,7 @@ const MotionSection = React.forwardRef<HTMLElement, MotionSectionProps>(
       visible: {
         opacity: 1,
         transition: {
-          duration: 0.6,
+          duration: qualityConfig.animationDuration,
           delay: delay,
           staggerChildren: shouldAnimate ? stagger : 0
         }
@@ -38,7 +40,15 @@ const MotionSection = React.forwardRef<HTMLElement, MotionSectionProps>(
     };
 
     return (
-      <Section ref={sectionRef} {...props}>
+      <Section 
+        ref={sectionRef} 
+        {...props}
+        style={{
+          contentVisibility: qualityConfig.contentVisibility ? 'auto' : 'visible',
+          contain: qualityConfig.contentVisibility ? 'content' : 'none',
+          ...props.style
+        }}
+      >
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -65,6 +75,8 @@ const MotionItem = React.forwardRef<
     onClick?: () => void;
   }
 >(({ children, y = 20, scale = 0.95, disabled = false, className, onClick }, ref) => {
+  const qualityConfig = getQualityConfig();
+  
   // Check for reduced motion preference
   const prefersReducedMotion = React.useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -84,7 +96,11 @@ const MotionItem = React.forwardRef<
       y: 0,
       scale: 1,
       transition: {
-        duration: 0.5
+        type: getCurrentQuality() === 'low' ? "tween" : "spring",
+        stiffness: getCurrentQuality() === 'low' ? undefined : 400,
+        damping: getCurrentQuality() === 'low' ? undefined : 30,
+        duration: qualityConfig.animationDuration,
+        ease: getCurrentQuality() === 'low' ? "easeOut" : undefined
       }
     }
   };

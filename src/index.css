@@ -105,6 +105,9 @@
     /* Animation transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* Performance fallbacks */
+    --bg-glass-panel-fallback: rgba(0, 0, 0, 0.6);
   }
 }
 
